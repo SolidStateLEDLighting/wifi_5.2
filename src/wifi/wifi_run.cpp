@@ -1,0 +1,1308 @@
+#include "wifi/wifi_.hpp"
+#include "system_.hpp"
+
+#include "esp_check.h"
+
+extern SemaphoreHandle_t semWifiEntry;
+
+void Wifi::runMarshaller(void *arg)
+{
+    ((Wifi *)arg)->run();
+    vTaskDelete(NULL);
+}
+
+void Wifi::run(void)
+{
+    esp_err_t ret = ESP_OK;
+    std::string serverName = "";
+
+    WIFI_OP currOp = WIFI_OP::Idle;
+
+    uint8_t waitingOnRouterConnSec = 0, waitingOnIPAddressSec = 0, waitingOnValidTimeSec = 0; // Single second counters
+    uint8_t routerDirectivesDelay = 4;
+    uint8_t runDelayForSNTP = 4;
+
+    WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
+
+    while (true)
+    {
+        switch (wifiOP)
+        {
+        case WIFI_OP::Run: // Our target is to keep the run loop cycling at 4Hz. If you change this, other adjustments are required below.
+        {
+            /* Event Processing */
+            runEvents(lockGetUint32(&wifiEvents));
+
+            /*  Service all Task Notifications */
+            // Task Notifications should be used for notifications or commands which need no input and return no data.
+            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(120)));
+
+            if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Do I have a notify value?
+            {
+                switch (wifiTaskNotifyValue)
+                {
+                case WIFI_NOTIFY::NONE:
+                {
+                    break; // Impossible to reach but must be defined.
+                }
+
+                case WIFI_NOTIFY::CMD_CLEAR_PRI_ROUTER: // Some of these notifications set Directive bits - a follow up CMD_RUN_DIRECTIVES task notification starts the action.
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_CLEAR_PRI_ROUTER");
+                    wifiDirectives |= _wifiClearPriRouter;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_DISC_ROUTER:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_DISC_ROUTER");
+                    wifiDirectives |= _wifiDisconnectRouter;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_CONN_PRI_ROUTER:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_CONN_PRI_ROUTER");
+                    wifiDirectives |= _wifiConnectPriRouter;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_RUN_DIRECTIVES:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_RUN_DIRECTIVES");
+
+                    wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Start;
+                    wifiOP = WIFI_OP::Directives;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_SHUT_DOWN:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_SHUT_DOWN");
+                    wifiShdnStep = WIFI_SHUTDOWN::Start;
+                    wifiOP = WIFI_OP::Shutdown;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_SET_AUTOCONNECT:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_SET_AUTOCONNECT");
+
+                    autoConnect = true;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT:
+                {
+                    if (show & _showRun)
+                        ESP_LOGW(TAG, "Received WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT");
+
+                    autoConnect = false;
+                    break;
+                }
+
+                case WIFI_NOTIFY::CMD_PRINT_STATES:
+                {
+                    printOpState();
+                    break;
+                }
+                }
+            }
+
+            /*  Service all Queued Incoming Commands */
+            // Queue based commands should be used for commands which may provide input and perhaps return data.
+            if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(120))) // We can wait here a while without a negative impact to any other Run operation.
+            {
+                if (ptrWifiCmdRequest != nullptr)
+                {
+                    // ESP_LOGI(TAG, "Current Wifi State %d   Received Command %d", (uint8_t)wifiConnState, (int)(ptrWifiCmdRequest->requestedCmd));
+                    // ESP_LOGI(TAG, "data is %s", (char *)(ptrWifiCmdRequest->data));
+                    // ESP_LOGI(TAG, "len  is %d", ptrWifiCmdRequest->dataLength);
+                }
+
+                switch (ptrWifiCmdRequest->requestedCmd)
+                {
+                case WIFI_COMMAND::NONE:
+                {
+                    if (show & _showRun)
+                        ESP_LOGI(TAG, "Received the command WIFI_COMMAND::NONE");
+                    break;
+                }
+
+                case WIFI_COMMAND::SET_SSID_PRI:
+                {
+                    if (show & _showRun)
+                        ESP_LOGI(TAG, "Received the command WIFI_COMMAND::SET_SSID_PRI");
+
+                    ssidPri = std::string((char *)ptrWifiCmdRequest->data, (size_t)ptrWifiCmdRequest->dataLength);
+                    routerStatus |= _rtrPriValid; // If we don't declare the SSID/Password as valid, the algorithm won't allow the connection.
+                    saveVariablesToNVS();
+                    break;
+                }
+
+                case WIFI_COMMAND::SET_PASSWD_PRI:
+                {
+                    if (show & _showRun)
+                        ESP_LOGI(TAG, "Received the command WIFI_COMMAND::SET_PASSWD_PRI");
+
+                    ssidPwdPri = std::string((char *)ptrWifiCmdRequest->data, (size_t)ptrWifiCmdRequest->dataLength);
+                    routerStatus |= _rtrPriValid; // If we don't declare the SSID/Password as valid, the algorithm won't allow the connection.
+                    saveVariablesToNVS();
+                    break;
+                }
+
+                case WIFI_COMMAND::SET_SHOW_FLAGS:
+                {
+                    if (show & _showRun)
+                        ESP_LOGI(TAG, "Received the command WIFI_COMMAND::SET_SHOW_FLAGS");
+
+                    show = ptrWifiCmdRequest->data[0];
+                    showWIFI = ptrWifiCmdRequest->data[1];
+
+                    if ((show + showWIFI) > 0)
+                        esp_log_level_set(TAG, ESP_LOG_INFO); // Enable logging output down to Info level
+                    else
+                        esp_log_level_set(TAG, ESP_LOG_ERROR); // Don't allow any logging output.
+                    break;
+                }
+                }
+                xQueueReceive(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(0)); // Remove the item from the queue
+            }
+
+            //
+            // State Changes
+            //
+
+            /* Don't run directives automatically until System is fully intializated */
+            if (routerDirectivesDelay > 0)
+            {
+                if (--routerDirectivesDelay < 1)
+                {
+                    if (!xSemaphoreTake(semSysEntry, 100)) // Failure to take the system entry semaphore
+                        routerDirectivesDelay = 4;         // Reset delay because system initialization is not complete.
+                    else
+                    {
+                        xSemaphoreGive(semSysEntry);
+                        wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Start;
+                        wifiOP = WIFI_OP::Directives;
+                    }
+                }
+            }
+
+            /* Connecting to Router on delay*/
+            if (waitingOnRouterConnSec > 0) // 1 second entry here to connect to Router.  If timeout, we disconnect/reconnect
+            {
+                if (--waitingOnRouterConnSec < 1)
+                {
+                    waitingOnRouterConnSec = 5; // We reset the count here early because any break statement can exit our local scope.
+
+                    if (++noRouterSecsToRestart > noRouterSecsToRestartMax) // Counting the seconds before connection to a router
+                    {
+                        waitingOnRouterConnSec = 0; // stop this second counter
+                        noRouterSecsToRestart = 0;  //
+                        wifiRouterTimeOut = true;   // We have a timeout violation
+
+                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
+
+                    if (noRouterSecsToRestart > 4)
+                    {
+                        if (show & _showRun)
+                            ESP_LOGW(TAG, "noRouterSecsToRestart Seconds %d/%d before restart.", noRouterSecsToRestart, noRouterSecsToRestartMax);
+                    }
+
+                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_To_Connect)
+                    {
+                        wifiOP = WIFI_OP::Connect;
+                        break;
+                    }
+                }
+            }
+
+            /* Waiting on IP Addres */
+            if (waitingOnIPAddressSec > 0) // 1 second entry here to see if we have an IP Address.  If timeout, we disconnect/reconnect
+            {
+                if (--waitingOnIPAddressSec < 1)
+                {
+                    waitingOnIPAddressSec = 5;
+
+                    if (++noIPAddressSecToRestart > noIPAddressSecToRestartMax)
+                    {
+                        waitingOnIPAddressSec = 0;   // stop this second counter
+                        noIPAddressSecToRestart = 0; //
+                        wifiIPAddressTimeOut = true; // We have a timeout violation
+
+                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
+
+                    if (noIPAddressSecToRestart > 4)
+                    {
+                        if (show & _showRun)
+                            ESP_LOGW(TAG, "noIPAddressSecToRestart seconds %d/%d before restart.", noIPAddressSecToRestart, noIPAddressSecToRestartMax);
+                    }
+
+                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_For_IP_Address)
+                    {
+                        wifiOP = WIFI_OP::Connect;
+                        break;
+                    }
+                }
+            }
+
+            /* Obtaining Epoch Time */
+            if (waitingOnValidTimeSec) // 1 second entry here to cofirm receipt of Epoch Time.  If timeout, we disconnect/reconnect
+            {
+                if (--waitingOnValidTimeSec < 1)
+                {
+                    waitingOnValidTimeSec = 5;
+
+                    if (++noValidTimeSecToRestart > noValidTimeSecToRestartMax)
+                    {
+                        waitingOnValidTimeSec = 0;     // stop this second counter
+                        noValidTimeSecToRestart = 0;   //
+                        wifiNoValidTimeTimeOut = true; // We have a timeout violation
+
+                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
+
+                    if (noValidTimeSecToRestart > 4)
+                    {
+                        if (show & _showRun)
+                            ESP_LOGW(TAG, "noValidTimeSecToRestart seconds %d/%d before restart.", noValidTimeSecToRestart, noValidTimeSecToRestartMax);
+                    }
+
+                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time)
+                    {
+                        wifiOP = WIFI_OP::Connect;
+                        break;
+                    }
+                }
+            }
+
+            /* saving data to NVS on delay */
+            if (saveToNVSDelayCount > 0)
+            {
+                if (--saveToNVSDelayCount < 1)
+                    saveVariablesToNVS();
+            }
+
+            //
+            // Call run functions for any contained objects that don't have a tasks of their own
+            //
+            if ((sntp != nullptr) && runDelayForSNTP)
+            {
+                if (--runDelayForSNTP < 1)
+                {
+                    sntp->run();
+                    runDelayForSNTP = 4; // We are calling the sntp run function around 1Hz
+                }
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(10));
+            break;
+        }
+
+        case WIFI_OP::Init:
+        {
+            switch (wifiInitStep)
+            {
+            case WIFI_INIT::Start:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Start");
+
+                wifiInitStep = WIFI_INIT::Checks;
+                [[fallthrough]];
+            }
+
+            case WIFI_INIT::Checks:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Checks - Step " + std::to_string((int)WIFI_INIT::Checks));
+
+                // NOTE: Checking for all the required variables here helps us reduce complexity in the remainder of the code.
+
+                if (sntp == nullptr)
+                {
+                    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Who forgot to instantiate nvs?");
+                    wifiOP = WIFI_OP::Error; // Effectively, this is an assert without an abort.
+                    break;
+                }
+
+                if (taskHandleSystemRun == nullptr)
+                {
+                    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): taskHandleSystemRun is nullptr, but is needed for notifications...");
+                    wifiOP = WIFI_OP::Error; // Effectively, this is an assert without an abort.
+                    break;
+                }
+
+                wifiInitStep = WIFI_INIT::Init_Queues_Commands;
+                break;
+            }
+
+            case WIFI_INIT::Init_Queues_Commands:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Init_Queues_Commands - Step " + std::to_string((int)WIFI_INIT::Init_Queues_Commands));
+
+                queueCmdRequests = xQueueCreate(1, sizeof(WIFI_CmdRequest *)); // Initialize our Incoming Command Request Queue
+                ptrWifiCmdRequest = new WIFI_CmdRequest();
+
+                wifiInitStep = WIFI_INIT::Set_Variables_From_Config;
+                break;
+            }
+
+            case WIFI_INIT::Set_Variables_From_Config:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Set_Variables_From_Config - Step " + std::to_string((int)WIFI_INIT::Set_Variables_From_Config));
+                //
+                // Any value held in Config will over-write any value stored in the system.  Always clear Config values before sending product
+                // to the field.
+                //
+                std::string configValue = CONFIG_ESP_WIFI_STA_SSID_PRI;
+
+                // if the stored nvs value doesn't match the staConfig value and the staConfig value is not "empty", then change to staConfig value.
+                if ((ssidPri.compare(configValue) != 0) && (configValue.compare("empty") != 0))
+                {
+                    ssidPri = CONFIG_ESP_WIFI_STA_SSID_PRI;
+                    ESP_LOGW(TAG, "Using ssidPri from Configuration with a value of %s", ssidPri.c_str());
+                    saveVariablesToNVS();
+                }
+                else
+                    ESP_LOGW(TAG, "Using ssidPri from nvs with a value of %s", ssidPri.c_str());
+
+                configValue = CONFIG_ESP_WIFI_STA_PASSWORD_PRI;
+
+                if ((ssidPwdPri.compare(configValue) != 0) && (configValue.compare("empty") != 0))
+                {
+                    ssidPwdPri = CONFIG_ESP_WIFI_STA_PASSWORD_PRI;
+                    ESP_LOGW(TAG, "Using ssidPwdPri from Configuration with a value of %s", ssidPwdPri.c_str());
+                    saveVariablesToNVS();
+                }
+                else
+                    ESP_LOGW(TAG, "Using ssidPwdPri from nvs with a value of %s", ssidPwdPri.c_str());
+
+                wifiInitStep = WIFI_INIT::Auto_Connect;
+                break;
+            }
+
+            case WIFI_INIT::Auto_Connect:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Auto_Connect - Step " + std::to_string((int)WIFI_INIT::Auto_Connect));
+
+                if (autoConnect) // If autoConnect is set, then set a directive bit to connect to the active router.
+                {
+                    wifiDirectives |= _wifiConnectPriRouter;
+                    saveVariablesToNVS();
+                }
+
+                wifiInitStep = WIFI_INIT::Finished;
+                break;
+            }
+
+            case WIFI_INIT::Finished:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Finished");
+
+                xSemaphoreGive(semWifiEntry); // Allow entry from any other calling tasks
+                wifiOP = WIFI_OP::Run;
+                break;
+            }
+
+            case WIFI_INIT::Error:
+            {
+                if (show & _showInit)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Error");
+
+                wifiOP = WIFI_OP::Error;
+                wifiInitStep = WIFI_INIT::Finished;
+                break;
+            }
+            }
+            break;
+        }
+
+        case WIFI_OP::Directives:
+        {
+            switch (wifiDirectivesStep)
+            {
+            case WIFI_RUN_DIRECTIVES::Start:
+            {
+                if (showWIFI & _showDrtvSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_RUN_DIRECTIVES::Start");
+                //
+                // Directives are stored and executed in a logical order.
+                // All directives are cleared once executed.
+                //
+                // We can manaually test all our directives here on startup.
+                // wifiDirectives = 0;
+                // wifiDirectives |= _wifiClearPriRouter;
+                // wifiDirectives |= _wifiDisconnectRouter;
+                // wifiDirectives |= _wifiConnectPriRouter;
+                //
+                if (showWIFI & _showDrtvSteps)
+                    ESP_LOGW(TAG, "wifiDirectives = %d", wifiDirectives);
+
+                if (wifiDirectives > 0)
+                    wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Clear_Data;
+                else
+                    wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Finished;
+
+                break;
+            }
+
+            case WIFI_RUN_DIRECTIVES::Clear_Data:
+            {
+                if (showWIFI & _showDrtvSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_RUN_DIRECTIVES::Clear_Data");
+                //
+                // Clear any data as required.  This is a one type action that is cleared from the Directives.
+                //
+                if (wifiDirectives & _wifiClearPriRouter)
+                {
+                    wifiDirectives &= ~_wifiClearPriRouter; // Clear this flag
+                    ssidPri = "empty";
+                    ssidPwdPri = "empty";
+                    routerStatus &= ~_rtrPriValid; // Can't be valid or active when cleared.
+                    routerStatus &= ~_rtrPriActive;
+                    saveVariablesToNVS();
+                }
+
+                wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Disconnect_Router;
+                break;
+            }
+
+            case WIFI_RUN_DIRECTIVES::Disconnect_Router:
+            {
+                if (showWIFI & _showDrtvSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_RUN_DIRECTIVES::Disconnect_Router");
+                //
+                // Disconnect any router that is active. This a one action that is cleared from the Directives.
+                // We might call to Disconnect a Router than is in service, but this is rare and typically be used when
+                // the device is in a Wifi mesh and does not need to be connected to a Router.
+                //
+                if (wifiDirectives & _wifiDisconnectRouter)
+                {
+                    wifiDirectives &= ~_wifiDisconnectRouter; // Cancel this flag.
+
+                    if (autoConnect) // If true, set to false because we are explicitly disconnecting and we don't want the system to reconnect.
+                    {
+                        autoConnect = false;
+                        saveToNVSDelayCount = 5;
+                    }
+
+                    wifiDiscStep = WIFI_DISC::Start; // Start the disconnection process
+                    wifiOP = WIFI_OP::Disconnect;
+                    break; // Vector off to Disconnect
+                }
+                wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Connect_Router; // Advanced to the next possible directive
+                break;
+            }
+
+            case WIFI_RUN_DIRECTIVES::Connect_Router:
+            {
+                if (showWIFI & _showDrtvSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_RUN_DIRECTIVES::Connect_Router");
+
+                if ((wifiDirectives & _wifiConnectPriRouter) || (wifiDirectives & _wifiConnectPriRouter))
+                {
+                    if (!autoConnect) // If false -- set autoConnect to true
+                    {
+                        autoConnect = true; // Always set autoConnect UNLESS you manually disconnect...
+                        saveToNVSDelayCount = 5;
+                    }
+
+                    if (wifiConnState == WIFI_CONN_STATE::WIFI_CONNECTED_STA) // Only consider connecting if not connected...
+                    {
+                        wifiDirectives &= ~_wifiConnectPriRouter; // Since we are already connected, cancel any flag that might be set.
+                    }
+                    else
+                    {
+                        //
+                        // Connect to only one router.  Primary is selected for the attempt first then Secondary.
+                        // Typically we would have both Routers marked for connection, but it is possible that only one
+                        // be selected.
+                        //
+                        if (wifiDirectives & _wifiConnectPriRouter)
+                        {
+                            if (showWIFI & _showDrtvSteps)
+                                ESP_LOGW(TAG, "connectPriRouter");
+                            wifiDirectives &= ~_wifiConnectPriRouter; // Cancel this flag.
+
+                            if (showWIFI & _showDrtvSteps)
+                                ESP_LOGW(TAG, "primary Router Valid");
+
+                            routerStatus |= _rtrPriActive; // Indicate that Primary is active
+                            saveVariablesToNVS();
+
+                            wifiConnStep = WIFI_CONN::Start;
+                            wifiOP = WIFI_OP::Connect;
+                            break;
+                        }
+                    }
+                }
+                else
+                    wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Finished;
+                break;
+            }
+
+            case WIFI_RUN_DIRECTIVES::Finished:
+            {
+                if (showWIFI & _showDrtvSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_RUN_DIRECTIVES::Finished");
+
+                if (wifiDirectives > 0) // If another directive has come in, restart our directives process
+                    wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Start;
+
+                wifiOP = WIFI_OP::Run;
+                break;
+            }
+            }
+            break;
+        }
+
+        case WIFI_OP::Connect:
+        {
+            switch (wifiConnStep)
+            {
+            case WIFI_CONN::Start:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Start");
+
+                wifiConnStep = WIFI_CONN::Create_Netif_Objects;
+                [[fallthrough]];
+            }
+
+            case WIFI_CONN::Create_Netif_Objects:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Create_Netif_Objects - Step " + std::to_string((int)WIFI_CONN::Create_Netif_Objects));
+
+                if (defaultSTANetif == nullptr)
+                {
+                    defaultSTANetif = esp_netif_create_default_wifi_sta();
+                    ESP_GOTO_ON_FALSE(defaultSTANetif, ESP_FAIL, wifi_Create_Netif_STA_Object_err, TAG, "esp_netif_create_default_wifi_sta() returned nullptr.");
+                }
+                else
+                {
+                    ESP_LOGW(TAG, "defaultSTANetif NOT NULL, what happened?");
+                }
+
+                wifiConnStep = WIFI_CONN::Wifi_Init;
+                break;
+
+            wifi_Create_Netif_STA_Object_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Create_Netif_Objects: error " + esp_err_to_name(ret);
+                wifiConnStep = WIFI_CONN::Error;
+                break;
+            }
+
+            case WIFI_CONN::Wifi_Init:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Init - Step " + std::to_string((int)WIFI_CONN::Wifi_Init));
+
+                wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+                ESP_GOTO_ON_ERROR(esp_wifi_init(&cfg), wifi_Wifi_Init_err, TAG, "esp_wifi_init(&cfg) failed");
+                wifiConnStep = WIFI_CONN::Register_Handlers;
+                break;
+
+            wifi_Wifi_Init_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Wifi_Init: error: " + esp_err_to_name(ret);
+                wifiOP = WIFI_OP::Error;
+                break;
+            }
+
+            case WIFI_CONN::Register_Handlers:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Register_Handlers - Step " + std::to_string((int)WIFI_CONN::Register_Handlers));
+
+                if (instanceHandlerWifiEventAnyId == nullptr)
+                {
+                    // ESP_LOGW(TAG, "Reg instanceHandlerWifiEventAnyId");
+                    ESP_GOTO_ON_ERROR(esp_event_handler_instance_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &eventHandlerWifiMarshaller, this, &instanceHandlerWifiEventAnyId), Wifi_Register_Event_Handlers_err, TAG, "register WIFI_EVENT::ESP_EVENT_ANY_ID failed");
+                }
+
+                if (instanceHandlerIpEventGotIp == nullptr)
+                {
+                    // ESP_LOGW(TAG, "Reg instanceHandlerIpEventGotIp");
+                    ESP_GOTO_ON_ERROR(esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &eventHandlerWifiMarshaller, this, &instanceHandlerIpEventGotIp), Wifi_Register_Event_Handlers_err, TAG, "register IP_EVENT::IP_EVENT_STA_GOT_IP failed");
+                }
+                wifiConnStep = WIFI_CONN::Set_Wifi_Mode;
+                break;
+
+            Wifi_Register_Event_Handlers_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Register_Handlers : error : " + esp_err_to_name(ret);
+                wifiConnStep = WIFI_CONN::Error; // If we have any failures here, then exit out of our process.
+                break;
+            }
+
+            case WIFI_CONN::Set_Wifi_Mode:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Set_Wifi_Mode - Step " + std::to_string((int)WIFI_CONN::Set_Wifi_Mode));
+
+                ESP_GOTO_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), wifi_Set_Wifi_Mode_err, TAG, "esp_wifi_set_mode(WIFI_MODE_APSTA) failed");
+                wifiConnStep = WIFI_CONN::Set_Sta_Config;
+                break;
+
+            wifi_Set_Wifi_Mode_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Set_Wifi_Mode : error : " + esp_err_to_name(ret);
+                wifiConnStep = WIFI_CONN::Error; // If we have any failures here, then exit out of our process.
+                break;
+            }
+
+            case WIFI_CONN::Set_Sta_Config:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Set_Sta_Config - Step " + std::to_string((int)WIFI_CONN::Set_Sta_Config));
+
+                // Must do a read, modify, write with Config data.
+                ESP_GOTO_ON_ERROR(esp_wifi_get_config(WIFI_IF_STA, &staConfig), wifi_Set_Sta_Config_err, TAG, "esp_wifi_get_config(WIFI_IF_STA, &staConfig) failed");
+
+                // uint8_t ssid[32];                                            /**< SSID of target AP. */
+                // uint8_t password[64];                                        /**< Password of target AP. */
+                // wifi_scan_method_t scan_method;                              /**< do all channel scan or fast scan */
+                // bool bssid_set;                                              /**< whether set MAC address of target AP or not. Generally, station_config.bssid_set needs to be 0; and it needs to be 1 only when users need to check the MAC address of the AP.*/
+                // uint8_t bssid[6];                                            /**< MAC address of target AP*/
+                // uint8_t channel;                                             /**< channel of target AP. Set to 1~13 to scan starting from the specified channel before connecting to AP. If the channel of AP is unknown, set it to 0.*/
+                // uint16_t listen_interval;                                    /**< Listen interval for ESP32 station to receive beacon when WIFI_PS_MAX_MODEM is set. Units: AP beacon intervals. Defaults to 3 if set to 0. */
+                // wifi_sort_method_t sort_method;                              /**< sort the connect AP in the list by rssi or security mode */
+                // wifi_scan_threshold_t threshold;                             /**< When sort_method is set, only APs which have an auth mode that is more secure than the selected auth mode and a signal stronger than the minimum RSSI will be used. */
+                // wifi_pmf_config_t pmf_cfg;                                   /**< Configuration for Protected Management Frame. Will be advertised in RSN Capabilities in RSN IE. */
+                // uint32_t rm_enabled : 1;                                     /**< Whether Radio Measurements are enabled for the connection */
+                // uint32_t btm_enabled : 1;                                    /**< Whether BSS Transition Management is enabled for the connection */
+                // uint32_t mbo_enabled : 1;                                    /**< Whether MBO is enabled for the connection */
+                // uint32_t ft_enabled : 1;                                     /**< Whether FT is enabled for the connection */
+                // uint32_t owe_enabled : 1;                                    /**< Whether OWE is enabled for the connection */
+                // uint32_t transition_disable : 1;                             /**< Whether to enable transition disable feature */
+                // uint32_t reserved : 26;                                      /**< Reserved for future feature set */
+                // wifi_sae_pwe_method_t sae_pwe_h2e;                           /**< Configuration for SAE PWE derivation method */
+                // wifi_sae_pk_mode_t sae_pk_mode;                              /**< Configuration for SAE-PK (Public Key) Authentication method */
+                // uint8_t failure_retry_cnt;                                   /**< Number of connection retries station will do before moving to next AP. scan_method should be set as WIFI_ALL_CHANNEL_SCAN to use this staConfig.
+                //                                                                   Note: Enabling this may cause connection time to increase incase best AP doesn't behave properly. */
+                // uint32_t he_dcm_set : 1;                                     /**< Whether DCM max.constellation for transmission and reception is set. */
+                // uint32_t he_dcm_max_constellation_tx : 2;                    /**< Indicate the max.constellation for DCM in TB PPDU the STA supported. 0: not supported. 1: BPSK, 2: QPSK, 3: 16-QAM. The default value is 3. */
+                // uint32_t he_dcm_max_constellation_rx : 2;                    /**< Indicate the max.constellation for DCM in both Data field and HE-SIG-B field the STA supported. 0: not supported. 1: BPSK, 2: QPSK, 3: 16-QAM. The default value is 3. */
+                // uint32_t he_mcs9_enabled : 1;                                /**< Whether to support HE-MCS 0 to 9. The default value is 0. */
+                // uint32_t he_su_beamformee_disabled : 1;                      /**< Whether to disable support for operation as an SU beamformee. */
+                // uint32_t he_trig_su_bmforming_feedback_disabled : 1;         /**< Whether to disable support the transmission of SU feedback in an HE TB sounding sequence. */
+                // uint32_t he_trig_mu_bmforming_partial_feedback_disabled : 1; /**< Whether to disable support the transmission of partial-bandwidth MU feedback in an HE TB sounding sequence. */
+                // uint32_t he_trig_cqi_feedback_disabled : 1;                  /**< Whether to disable support the transmission of CQI feedback in an HE TB sounding sequence. */
+                // uint32_t he_reserved : 22;                                   /**< Reserved for future feature set */
+                // uint8_t sae_h2e_identifier[SAE_H2E_IDENTIFIER_LEN];          /**< Password identifier for H2E. this needs to be null terminated string */
+
+                memset(&staConfig.sta.ssid, 0, 32);     // Old ssid/pwd can be here prior to arrival,
+                memset(&staConfig.sta.password, 0, 64); // so we always want to clear the entire array.
+
+                if (routerStatus & _rtrPriActive)
+                {
+                    memcpy(&staConfig.sta.ssid, (void *)ssidPri.c_str(), ssidPri.size());
+                    memcpy(&staConfig.sta.password, (void *)ssidPwdPri.c_str(), ssidPwdPri.size());
+                }
+
+                // Authorization Mode - For quick reference, this is a list of my routers and their authorzation modes
+                // Hippo       4 WIFI_AUTH_WPA_WPA2_PSK
+                // Wildcat     3 WIFI_AUTH_WPA2_PSK
+                // Wildcat IOT 3 WIFI_AUTH_WPA2_PSK
+
+                staConfig.sta.bssid_set = 0;
+                // staConfig.sta.threshold.authmode = WIFI_AUTH_WPA_WPA2_PSK; // Can flip from one to another for testing
+                staConfig.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+                staConfig.sta.pmf_cfg.capable = true;
+                staConfig.sta.pmf_cfg.required = false;
+
+                if (showWIFI & _showConnSteps)
+                {
+                    ESP_LOGW(TAG, "sta.ssid                    %s", staConfig.sta.ssid);
+                    ESP_LOGW(TAG, "sta.password                %s", staConfig.sta.password);
+                    ESP_LOGW(TAG, "reserved                    %d", staConfig.sta.reserved);
+                    ESP_LOGW(TAG, "he_dcm_max_constellation_tx %d", staConfig.sta.he_dcm_max_constellation_tx);
+                    ESP_LOGW(TAG, "he_reserved                 %d", staConfig.sta.he_reserved);
+                    ESP_LOGW(TAG, "he_mcs9_enabled             %d", staConfig.sta.he_mcs9_enabled);
+                }
+
+                ESP_GOTO_ON_ERROR(esp_wifi_set_config(WIFI_IF_STA, &staConfig), wifi_Set_Sta_Config_err, TAG, "esp_wifi_set_config(WIFI_IF_STA, &staConfig) failed");
+                wifiConnStep = WIFI_CONN::Wifi_Start;
+                break;
+
+            wifi_Set_Sta_Config_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Set_Sta_Config: error: " + esp_err_to_name(ret);
+                wifiConnStep = WIFI_CONN::Error;
+                break;
+            }
+
+            case WIFI_CONN::Wifi_Start:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Start - Step " + std::to_string((int)WIFI_CONN::Wifi_Start));
+
+                ESP_GOTO_ON_ERROR(esp_wifi_start(), wifi_Wifi_Start_err, TAG, "WIFI_CONN::Wifi_Start esp_wifi_start() failed");
+
+                waitingOnRouterConnSec = 5; // Start the second timer
+                noRouterSecsToRestart = 0;  // Zeroing out the time out counter.
+
+                if (showWIFI & _showConnSteps) // Announce our intent to Wait To Connect before we start the wait.  This reduces unneeded messaging in that wait state.
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_To_Connect - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_To_Connect));
+
+                wifiConnStep = WIFI_CONN::Wifi_Waiting_To_Connect;
+                break;
+
+            wifi_Wifi_Start_err:
+                errMsg = std::string(__func__) + "(): WIFI_CONN::Wifi_Start : error : " + esp_err_to_name(ret);
+                wifiConnStep = WIFI_CONN::Error; // If we have any failures here, then exit out of our process.
+                break;
+            }
+
+            case WIFI_CONN::Wifi_Waiting_To_Connect:
+            {
+                if (wifiConnState == WIFI_CONN_STATE::WIFI_CONNECTED_STA)
+                {
+                    waitingOnRouterConnSec = 0; // Stops the second counter
+                    noRouterSecsToRestart = 0;  // Zeroing out the time-out counter.
+                    wifiRouterTimeOut = false;  // Done looking for full STA Connection which includes receiving an IP address.
+
+                    if (showWIFI & _showConnSteps) // Announce our intent to Wait For IP Addres before we start the wait.  This reduces unneeded messaging in that wait state.
+                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_For_IP_Address - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_For_IP_Address));
+
+                    wifiConnStep = WIFI_CONN::Wifi_Waiting_For_IP_Address;
+                    waitingOnIPAddressSec = 5; // Move to the next second timer
+                }
+                else
+                {
+                    wifiOP = WIFI_OP::Run; // If we don't have our connection yet, then allow the Run state to calculate the Timeout for this waiting step.
+                }
+                break;
+            }
+
+            case WIFI_CONN::Wifi_Waiting_For_IP_Address:
+            {
+                if (haveIPAddress)
+                {
+                    waitingOnIPAddressSec = 0;    // Stops the second counter
+                    noIPAddressSecToRestart = 0;  // Resets the time-out.
+                    wifiIPAddressTimeOut = false; //
+
+                    wifiConnStep = WIFI_CONN::Wifi_SNTP_Connect;
+                    waitingOnValidTimeSec = 5;
+                    break;
+                }
+                else
+                {
+                    wifiOP = WIFI_OP::Run; // If we don't have our IP Address yet, then allow the Run state to calculate the Timeout for this waiting step.
+                }
+                break;
+            }
+
+            case WIFI_CONN::Wifi_SNTP_Connect:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_SNTP_Connect - Step " + std::to_string((int)WIFI_CONN::Wifi_SNTP_Connect));
+
+                wifiConnStep = WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time;
+
+                if (showWIFI & _showConnSteps) // Techincally we are in the next state and we give an advanced notice here.
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time));
+
+                sntp->sntpOP = SNTP_OP::Connect;   // Ask SNTP to connect
+                sntp->connStep = SNTP_CONN::Start; //
+                sntp->run();                       // Enter the SNTP run loop
+                break;
+            }
+
+            case WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time:
+            {
+                if (sntp->timeValid)
+                {
+                    waitingOnValidTimeSec = 0;          // Stops the second counter
+                    wifiNoValidTimeTimeOut = false;     //
+                    wifiConnStep = WIFI_CONN::Finished; //
+                }
+                else
+                {
+                    sntp->run(); // Not valid yet, make a another pass through SNTP.
+                    wifiOP = WIFI_OP::Run;
+                }
+                break;
+            }
+
+            case WIFI_CONN::Finished:
+            {
+                if (showWIFI & _showConnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Finished");
+
+                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::WIFI_CONNECTED), eSetValueWithoutOverwrite))
+                    vTaskDelay(pdMS_TO_TICKS(10));
+
+                wifiOP = WIFI_OP::Directives;
+                break;
+            }
+
+            case WIFI_CONN::Error:
+            {
+                wifiConnStep = WIFI_CONN::Finished; // Park this state
+                wifiOP = WIFI_OP::Error;            // Vector to error handling
+                break;
+            }
+            }
+            break;
+        }
+
+        case WIFI_OP::Disconnect:
+        {
+            if (currOp != WIFI_OP::Disconnect)
+            {
+                ESP_LOGW(TAG, "enter Disconnect");
+                currOp = WIFI_OP::Disconnect;
+            }
+
+            switch (wifiDiscStep)
+            {
+            case WIFI_DISC::Start:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Start");
+
+                wifiDiscStep = WIFI_DISC::Deinitialize_SNTP;
+                [[fallthrough]];
+            }
+
+            case WIFI_DISC::Deinitialize_SNTP:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Deinitialize_SNTP - Step " + std::to_string((int)WIFI_DISC::Deinitialize_SNTP));
+
+                esp_sntp_stop();
+                esp_netif_sntp_deinit(); // Deinitialize esp_netif SNTP module inside the IDF.
+                wifiDiscStep = WIFI_DISC::Wifi_Disconnect;
+                break;
+            }
+
+            case WIFI_DISC::Wifi_Disconnect:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect - Step " + std::to_string((int)WIFI_DISC::Wifi_Disconnect));
+
+                ret = esp_wifi_disconnect();
+
+                if (ret == ESP_OK)
+                {
+                    ret = esp_wifi_stop();
+
+                    if (ret == ESP_OK)
+                    {
+                    }
+                    else if (ret == ESP_ERR_WIFI_NOT_INIT)
+                    {
+                        ESP_LOGW(TAG, "WiFi is not initialized by esp_wifi_init - esp_wifi_stop()");
+                    }
+                    else // Unknown error
+                    {
+                        errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_stop() error : " + esp_err_to_name(ret);
+                    }
+                }
+                else if (ret == ESP_ERR_WIFI_NOT_INIT)
+                {
+                    ESP_LOGW(TAG, "WiFi is not initialized by esp_wifi_init - esp_wifi_disconnect()");
+                }
+                else if (ret == ESP_ERR_WIFI_NOT_STARTED)
+                {
+                    ESP_LOGW(TAG, "WiFi is not started by esp_wifi_start - esp_wifi_disconnect()");
+                }
+                else // Unknown error
+                {
+                    errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_disconnect() error : " + esp_err_to_name(ret);
+                }
+
+                wifiDiscStep = WIFI_DISC::Reset_Flags;
+                break;
+            }
+
+            case WIFI_DISC::Reset_Flags:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Reset_Flags - Step " + std::to_string((int)WIFI_DISC::Reset_Flags));
+
+                sntp->timeValid = false;                       // SNTP Time is not valid
+                haveIPAddress = false;                         // We don't have an IP Address
+                wifiDiscStep = WIFI_DISC::Unregister_Handlers; //
+                break;
+            }
+
+            case WIFI_DISC::Unregister_Handlers:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Unregister_Handlers - Step " + std::to_string((int)WIFI_DISC::Unregister_Handlers));
+
+                if (instanceHandlerWifiEventAnyId != nullptr)
+                {
+                    // ESP_LOGW(TAG, "UnReg instanceHandlerWifiEventAnyId");
+                    ESP_GOTO_ON_ERROR(esp_event_handler_instance_unregister(WIFI_EVENT, ESP_EVENT_ANY_ID, instanceHandlerWifiEventAnyId), Wifi_Unregister_Handlers_err, TAG, "WIFI_DISC::Unregister_Handlers failed");
+                    instanceHandlerWifiEventAnyId = nullptr;
+                }
+
+                if (instanceHandlerIpEventGotIp != nullptr)
+                {
+                    // ESP_LOGW(TAG, "UnReg instanceHandlerIpEventGotIp");
+                    ESP_GOTO_ON_ERROR(esp_event_handler_instance_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, instanceHandlerIpEventGotIp), Wifi_Unregister_Handlers_err, TAG, "WIFI_DISC::Unregister_Handlers failed");
+                    instanceHandlerIpEventGotIp = nullptr;
+                }
+
+                wifiDiscStep = WIFI_DISC::Destroy_Netif_Objects;
+                break;
+
+            Wifi_Unregister_Handlers_err:
+                errMsg = std::string(__func__) + "(): WIFI_DISC::esp_event_handler_instance_unregister() error : " + esp_err_to_name(ret);
+                wifiDiscStep = WIFI_DISC::Error; // If we have any failures here, then exit out of our process.
+                break;
+            }
+
+            case WIFI_DISC::Destroy_Netif_Objects:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Destroy_Netif_Objects - Step " + std::to_string((int)WIFI_DISC::Destroy_Netif_Objects));
+                //
+                // We can get a race condition here where the esp_netif_create_default functions can be working behind the scenes.  To account for this - while the defaultNetif pointers are NULL,
+                // we must do some waiting here as these pointer may become non-NULL over time.
+                //
+                if (defaultSTANetif != nullptr)
+                {
+                    esp_netif_destroy_default_wifi(defaultSTANetif);
+                    defaultSTANetif = nullptr;
+                }
+
+                wifiDiscStep = WIFI_DISC::Finished;
+                break;
+            }
+
+            case WIFI_DISC::Finished:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Finished");
+
+                if (wifiRouterTimeOut || wifiIPAddressTimeOut || wifiNoValidTimeTimeOut) // Are we servicing a Router or SNTP timeout.  We need to restart.
+                {
+                    wifiConnStep = WIFI_CONN::Start; //
+                    wifiOP = WIFI_OP::Connect;       // We always try to start again after a disconnection that is not commanded.
+                }
+                else
+                {
+                    if (wifiShdnStep != WIFI_SHUTDOWN::Finished) // Give return priority to the call for Shut Down
+                    {
+                        wifiOP = WIFI_OP::Shutdown;
+                        ESP_LOGW(TAG, "Returning to Shutdown...");
+                    }
+                    else if (wifiDirectivesStep != WIFI_RUN_DIRECTIVES::Finished)
+                        wifiOP = WIFI_OP::Directives;
+
+                    while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
+                        vTaskDelay(pdMS_TO_TICKS(10));
+
+                    printTaskInfo();
+                }
+                break;
+            }
+
+            case WIFI_DISC::Error:
+            {
+                if (showWIFI & _showDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Error");
+                wifiOP = WIFI_OP::Error;
+                break;
+            }
+            }
+            break;
+        }
+
+        case WIFI_OP::Shutdown:
+        {
+            switch (wifiShdnStep)
+            {
+            case WIFI_SHUTDOWN::Start:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Start");
+
+                wifiShdnStep = WIFI_SHUTDOWN::Disconnect_Wifi;
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Wifi_Wait_Connection:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Wifi_Wait_Connection - Step " + std::to_string((int)WIFI_SHUTDOWN::Wifi_Wait_Connection));
+
+                // Are we in any kind of transition?  If so, come back around again.
+                if ((wifiConnState != WIFI_CONN_STATE::WIFI_CONNECTING_STA) || (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTING_STA))
+                {
+                    vTaskDelay(100);
+                    break;
+                }
+                else if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED) // If already disconnected, skip the next 2 steps.
+                {
+                    wifiShdnStep = WIFI_SHUTDOWN::Final_Items;
+                    break;
+                }
+
+                wifiShdnStep = WIFI_SHUTDOWN::Disconnect_Wifi;
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Disconnect_Wifi:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Disconnect_Wifi - Step " + std::to_string((int)WIFI_SHUTDOWN::Disconnect_Wifi));
+
+                wifiDiscStep = WIFI_DISC::Start;
+                wifiOP = WIFI_OP::Disconnect;
+
+                wifiShdnStep = WIFI_SHUTDOWN::Wait_For_Disconnection; // Resumes upon return in this step.
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Wait_For_Disconnection:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Wait_For_Disconnection - Step " + std::to_string((int)WIFI_SHUTDOWN::Wait_For_Disconnection));
+
+                if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED)
+                    vTaskDelay(100);
+                else
+                    wifiShdnStep = WIFI_SHUTDOWN::Final_Items;
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Final_Items:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Final_Items - Step " + std::to_string((int)WIFI_SHUTDOWN::Final_Items));
+                //
+                // Perform any final clean up action required here.
+                //
+                wifiShdnStep = WIFI_SHUTDOWN::Finished;
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Finished:
+            {
+                if (showWIFI & _showShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Finished");
+
+                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::WIFI_SHUTDOWN), eSetValueWithoutOverwrite))
+                    vTaskDelay(pdMS_TO_TICKS(10));
+
+                wifiShdnStep = WIFI_SHUTDOWN::Idle; // We hold Wifi in a permanent idle state.
+                break;
+            }
+
+            case WIFI_SHUTDOWN::Idle:
+            {
+                vTaskDelay(5000);
+                break;
+            }
+            }
+            break;
+        }
+
+        case WIFI_OP::Error:
+        {
+            routeLogByValue(LOG_TYPE::ERROR, errMsg);
+            wifiOP = WIFI_OP::Idle;
+            break;
+        }
+
+        case WIFI_OP::Idle:
+        {
+            ESP_LOGW(TAG, "WIFI_OP::Idle...");
+            wifiOP = WIFI_OP::Idle_Silent;
+            [[fallthrough]];
+        }
+
+        case WIFI_OP::Idle_Silent:
+        {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            break;
+        }
+        }
+
+        taskYIELD();
+    }
+}
+
+//
+// This is where we execute our event handler actions.  Removing all this from the event handlers reduces task contention over variables
+// and the event task can get back quickly to other more important event processing activities.
+//
+void Wifi::runEvents(uint32_t event)
+{
+    if (!event) // If there are no pending events to process, then return immediately.
+        return;
+
+    esp_err_t ret = ESP_OK;
+
+    if (show & _showRun)
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "()");
+
+    if (event & _wifiEventScanDone) // Handle only one event during any run loop
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventScanDone in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventScanDone); // Clear the flag
+    }
+    else if (event & _wifiEventSTAStart)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSTAStart in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventSTAStart); // Clear the flag
+
+        if (wifiConnState != WIFI_CONN_STATE::WIFI_READY_TO_CONNECT)
+        {
+            wifiConnState = WIFI_CONN_STATE::WIFI_READY_TO_CONNECT;
+
+            if (show & _showRun)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifiConnState = WIFI_READY_TO_CONNECT");
+        }
+
+        sntp->timeValid = false; // Everytime we start the STA Connection process, the SNTP time must be declared invalid.
+
+        ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed");
+
+        wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
+    }
+    else if (event & _wifiEventSTAStop)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSTAStop in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventSTAStop); // Clear the flag
+
+        sntp->timeValid = false; // When we stop the sta connection, sntp time must be invalidated.
+
+        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::WIFI_DISCONNECTING), eSetValueWithoutOverwrite))
+            vTaskDelay(pdMS_TO_TICKS(10));
+
+        if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED)
+            wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTING_STA; // Only run these items one time at a Disconnection.
+    }
+    else if (event & _wifiEventSTAConnected)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSTAConnected in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventSTAConnected); // Clear the flag
+        //
+        // We have connected to the Router.   This doesn't mean that we have an IP or access to the Internet yet,
+        // but we can confirm the ssid and password are valid for the targetted router.
+        //
+        wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTED_STA;
+    }
+    else if (event & _wifiEventSTADisconnected)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSTADisconnected in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventSTADisconnected); // Clear the flag
+
+        sntp->timeValid = false; // When we disconnect, sntp time must be invalidated.
+
+        if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED) // The first time we disconnect, set the state and send any required notifications.
+            wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED;
+
+        if (autoConnect)
+        {
+            ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed"); // Try to reconnect (But don't reset our timeout counts)
+            wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
+        }
+    }
+    else if (event & _wifiEventAPStart)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSAStart in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventAPStart); // Clear the flag
+    }
+    else if (event & _wifiEventAPStop)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventSAStop in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventAPStop); // Clear the flag
+    }
+    else if (event & _wifiEventAPConnected)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventAPConnected in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventAPConnected); // Clear the flag
+    }
+    else if (event & _wifiEventAPDisconnected)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventAPDisconnected in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventAPDisconnected); // Clear the flag
+    }
+    else if (event & _wifiEventBeaconTimeout)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _wifiEventBeaconTimeout in Run");
+        lockAndUint32(&wifiEvents, ~_wifiEventBeaconTimeout); // Clear the flag
+    }
+    else if (event & _ipEventSTAGotIp)
+    {
+        if (show & _showRun)
+            ESP_LOGW(TAG, "Seeing _ipEventSTAGotIp in Run");
+        lockAndUint32(&wifiEvents, ~_ipEventSTAGotIp); // Clear the flag
+
+        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        ESP_GOTO_ON_FALSE(netif, ESP_FAIL, wifi_eventRun_err, TAG, "Could not locate the WIFI_STA_DEF netif instance..."); // Effectively, this is an assert without an abort.
+
+        esp_netif_ip_info_t ip_info;
+        ESP_GOTO_ON_ERROR(esp_netif_get_ip_info(netif, &ip_info), wifi_eventRun_err, TAG, "esp_netif_get_ip_info() failed ");
+
+        uint8_t num1 = ((&(ip_info.ip.addr))[0]);
+        uint8_t num2 = ((&(ip_info.ip.addr))[1]);
+        uint8_t num3 = ((&(ip_info.ip.addr))[2]);
+        uint8_t num4 = ((&(ip_info.ip.addr))[3]);
+
+        if (show & _showEvents)
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My IP address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+        num1 = ((&(ip_info.gw.addr))[0]);
+        num2 = ((&(ip_info.gw.addr))[1]);
+        num3 = ((&(ip_info.gw.addr))[2]);
+        num4 = ((&(ip_info.gw.addr))[3]);
+
+        if (show & _showEvents)
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Gateway address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+        num1 = ((&(ip_info.netmask.addr))[0]);
+        num2 = ((&(ip_info.netmask.addr))[1]);
+        num3 = ((&(ip_info.netmask.addr))[2]);
+        num4 = ((&(ip_info.netmask.addr))[3]);
+
+        if (show & _showEvents)
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Netmask is " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+        haveIPAddress = true; // This will stop the wifi waiting process.
+    }
+    else
+    {
+        routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Did not include a run handler for this unknown Wifi Event");
+    }
+    return;
+
+wifi_eventRun_err:
+    errMsg = std::string(__func__) + "(): error: " + esp_err_to_name(ret);
+    wifiOP = WIFI_OP::Error;
+}

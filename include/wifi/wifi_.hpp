@@ -1,0 +1,137 @@
+#pragma once
+#include "wifi/wifi_defs.hpp" // Local definitions, structs, and enumerations
+
+#include <cstring> // Standard libraries
+
+#include "freertos/FreeRTOS.h" // RTOS Libraries
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/projdefs.h"
+
+#include "esp_log.h" // ESP libraries
+
+#include "esp_wifi.h"
+#include "esp_netif_types.h"
+#include "esp_wifi_types.h"
+
+#include "system_.hpp"
+#include "nvs/nvs_.hpp"
+#include "sntp/sntp_.hpp"
+
+/* Forward Declarations */
+class System;
+class NVS;
+class SNTP;
+
+/* External Variables */
+extern SemaphoreHandle_t semSysEntry;
+
+extern "C"
+{
+    class Wifi
+    {
+    public:
+        Wifi();
+        ~Wifi();
+
+        TaskHandle_t getRunTaskHandle(void);
+        QueueHandle_t getCmdRequestQueue(void); // Outside objects must ask for the CmdQueue
+
+        /* Wifi_Diagnostics */
+        void printTaskInfo(void);
+        void printOpState(void);
+
+    private:
+        char TAG[6] = "_wifi";
+
+        /* Object References */
+        System *sys = nullptr;
+        NVS *nvs = nullptr;
+
+        TaskHandle_t taskHandleSystemRun = nullptr;
+
+        uint8_t show = 0;
+        uint8_t showWIFI = 0;
+
+        bool haveIPAddress = false;
+
+        uint8_t wifiDirectives = 0;
+
+        void setShowFlags(void); // Pre-Task Functions
+        void setLogLevels(void);
+        void createSemaphores(void);
+
+        uint8_t runStackSizeK = 10; // Default/Minimum stacksize
+        TaskHandle_t taskHandleRun = nullptr;
+
+        /* SNTP */
+        SNTP *sntp = nullptr;
+
+        /* Wifi_Diagnostic */
+        // None that are private
+
+        /* Wifi_Events */
+        uint32_t wifiEvents = 0;
+        esp_event_handler_instance_t instanceHandlerWifiEventAnyId = nullptr; // Event Registration handles
+        esp_event_handler_instance_t instanceHandlerIpEventGotIp = nullptr;
+
+        static void eventHandlerWifiMarshaller(void *, esp_event_base_t, int32_t, void *);
+        void eventHandlerWifi(esp_event_base_t, int32_t, void *);
+
+        /* Wifi_Logging */
+        std::string errMsg = "";
+        void routeLogByRef(LOG_TYPE, std::string *);
+        void routeLogByValue(LOG_TYPE, std::string);
+
+        /* Wifi_NVS */
+        uint8_t saveToNVSDelayCount = 0;
+        bool restoreVariablesFromNVS(void);
+        bool saveVariablesToNVS(void);
+
+        /* Wifi_Run */
+        TaskHandle_t taskHandleWIFIRun = nullptr;
+
+        esp_netif_t *defaultSTANetif = nullptr; // Default STA
+        wifi_config_t staConfig;
+
+        uint8_t routerStatus = 0; //
+        std::string ssidPri = "empty";
+        std::string ssidPwdPri = "empty";
+
+        bool wifiRouterTimeOut = false; // Violation value
+        bool wifiIPAddressTimeOut = false;
+        bool wifiNoValidTimeTimeOut = false;
+        bool autoConnect = true; // Normal state is true unless manually disconnecting
+
+        uint8_t noRouterSecsToRestart = 0;     // Seconds count in progress
+        uint8_t noRouterSecsToRestartMax = 15; // Seconds to exire
+
+        uint8_t noIPAddressSecToRestart = 0;
+        uint8_t noIPAddressSecToRestartMax = 15;
+
+        uint8_t noValidTimeSecToRestart = 0;
+        uint8_t noValidTimeSecToRestartMax = 30; // We allow 1 full rotation through all 4 SNTP servers before resetting connection
+
+        QueueHandle_t queueCmdRequests = nullptr; // WIFI <-- ?? (Request Queue is here)
+        WIFI_CmdRequest *ptrWifiCmdRequest = nullptr;
+
+        static void runMarshaller(void *);
+        void run(void);
+        void runEvents(uint32_t);
+
+        WIFI_OP wifiOP = WIFI_OP::Init;                                         // Object States
+        WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;                  //
+        WIFI_INIT wifiInitStep = WIFI_INIT::Finished;                           //
+        WIFI_RUN_DIRECTIVES wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Finished; //
+        WIFI_CONN wifiConnStep = WIFI_CONN::Finished;                           //
+        WIFI_SNTP_CONN sntpConnStep = WIFI_SNTP_CONN::Idle;                     //
+        WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                           //
+        WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;                   //
+
+        /* Wifi_Utilities */
+        void lockOrUint32(uint32_t *, uint32_t);
+        void lockAndUint32(uint32_t *, uint32_t);
+        uint32_t lockGetUint32(uint32_t *);
+    };
+}
