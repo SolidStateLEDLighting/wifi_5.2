@@ -47,7 +47,7 @@ void SNTP::setShowFlags()
     // show |= _showPayload;
 
     showSNTP = 0;
-    // showSNTP |= _showSNTPConnSteps;
+    showSNTP |= _showSNTPConnSteps;
 }
 
 void SNTP::setLogLevels()

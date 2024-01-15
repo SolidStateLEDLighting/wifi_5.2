@@ -4,7 +4,7 @@
 extern SemaphoreHandle_t semLockBool;
 extern SemaphoreHandle_t semLockUint32;
 
-/* Utility Functions */
+/* Variable Locking */
 void Wifi::lockOrUint32(uint32_t *variable, uint32_t value)
 {
     if (xSemaphoreTake(semLockUint32, portMAX_DELAY))

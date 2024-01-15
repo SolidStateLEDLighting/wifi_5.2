@@ -22,70 +22,80 @@ void Wifi::eventHandlerWifi(esp_event_base_t event_base, int32_t event_id, void 
         {
         case WIFI_EVENT_SCAN_DONE: // ESP32 finish scanning AP
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_SCAN_DONE");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_SCAN_DONE");
             lockOrUint32(&wifiEvents, _wifiEventScanDone); // Register our event in the wifiEvents flag
             break;
         }
 
         case WIFI_EVENT_STA_START: // ESP32 station start
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_START - wifi connect");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_START - wifi connect");
             lockOrUint32(&wifiEvents, _wifiEventSTAStart);
             break;
         }
 
         case WIFI_EVENT_STA_STOP: // ESP32 station stop
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_STOP");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_STOP");
             lockOrUint32(&wifiEvents, _wifiEventSTAStop);
             break;
         }
 
         case WIFI_EVENT_STA_CONNECTED: // ESP32 station connected to AP
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_CONNECTED - IP address will follow...");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_CONNECTED - IP address will follow...");
             lockOrUint32(&wifiEvents, _wifiEventSTAConnected);
             break;
         }
 
         case WIFI_EVENT_STA_DISCONNECTED: // ESP32 station disconnected from AP
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_DISCONNECTED");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_DISCONNECTED");
             lockOrUint32(&wifiEvents, _wifiEventSTADisconnected);
             break;
         }
 
         case WIFI_EVENT_AP_START:
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_START");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_START");
             lockOrUint32(&wifiEvents, _wifiEventAPStart);
             break;
         }
 
         case WIFI_EVENT_AP_STOP:
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STOP");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STOP");
             lockOrUint32(&wifiEvents, _wifiEventAPStop);
             break;
         }
 
         case WIFI_EVENT_AP_STACONNECTED:
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STACONNECTED");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STACONNECTED");
             lockOrUint32(&wifiEvents, _wifiEventAPConnected);
             break;
         }
 
         case WIFI_EVENT_AP_STADISCONNECTED:
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STADISCONNECTED");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STADISCONNECTED");
             lockOrUint32(&wifiEvents, _wifiEventAPDisconnected);
             break;
         }
 
         case WIFI_EVENT_STA_BEACON_TIMEOUT:
         {
-            // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_BEACON_TIMEOUT, Starting to lose a connection...");
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_BEACON_TIMEOUT, Starting to lose a connection...");
             lockOrUint32(&wifiEvents, _wifiEventBeaconTimeout);
             break;
         }

@@ -11,14 +11,11 @@ extern SemaphoreHandle_t semNVSEntry;
 /* NVS */
 bool SNTP::restoreVariablesFromNVS()
 {
-    if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "()");
+    if (nvs == nullptr)
+        nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
     if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
     {
-        if (nvs == nullptr)
-            nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
-
         if (nvs->openNVSStorage("sntp", true) == false) // We always open the storage in Read/Write mode because some small changes may happen during the restoral process.
         {
             routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
@@ -37,7 +34,7 @@ bool SNTP::restoreVariablesFromNVS()
         if (nvs->getU8IntegerFromNVS("serverIndex", &serverIndex))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex is " + std::to_string(serverIndex));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex         is " + std::to_string(serverIndex));
         }
         else
         {
@@ -60,7 +57,7 @@ bool SNTP::restoreVariablesFromNVS()
             }
 
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone is " + timeZone); // Confirm our restored value
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone            is " + timeZone); // Confirm our restored value
         }
         else
         {
@@ -90,17 +87,16 @@ bool SNTP::restoreVariablesFromNVS()
 
 bool SNTP::saveVariablesToNVS()
 {
-    if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Start");
-
     //
     // The best idea is to save only changed values.  Right now, we try to save everything.
+    // The NVS object we call will avoid over-writing variables which already hold the correct value.
+    // Later, we may try to add and track 'dirty' bits to avoid trying to save a value that hasn't changed.
     //
+    if (nvs == nullptr)
+        nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
+
     if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
     {
-        if (nvs == nullptr)
-            nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
-
         if (nvs->openNVSStorage("sntp", true) == false) // Read/Write
         {
             routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
@@ -119,7 +115,7 @@ bool SNTP::saveVariablesToNVS()
         if (nvs->saveU8IntegerToNVS("serverIndex", serverIndex))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex = " + std::to_string(serverIndex));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex         = " + std::to_string(serverIndex));
         }
         else
         {
@@ -133,7 +129,7 @@ bool SNTP::saveVariablesToNVS()
         if (nvs->saveStringToNVS("timeZone", &timeZone))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone = " + timeZone);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone            = " + timeZone);
         }
         else
         {

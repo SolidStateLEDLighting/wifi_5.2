@@ -4,7 +4,7 @@
 extern SemaphoreHandle_t semLockBool;
 extern SemaphoreHandle_t semLockUint8;
 
-/* Utility Functions */
+/* Variable Locking */
 void SNTP::lockOrUint8(uint8_t *variable, uint8_t value)
 {
     if (xSemaphoreTake(semLockUint8, portMAX_DELAY))

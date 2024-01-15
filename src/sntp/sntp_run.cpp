@@ -45,12 +45,6 @@ void SNTP::run(void)
             // setenv("TZ", "EST5EDT", 1); // This is US EST
             // setenv("TZ", "HKT-8", 1);   // This is the Phillippines
 
-            if (showSNTP & _showSNTPConnSteps)
-            {
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): CONFIG_SNTP_TIME_ZONE is " + CONFIG_SNTP_TIME_ZONE);
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone is              " + timeZone);
-            }
-
             std::string temp = CONFIG_SNTP_TIME_ZONE;
 
             if (temp.compare(timeZone) != 0)
@@ -58,8 +52,11 @@ void SNTP::run(void)
                 timeZone = CONFIG_SNTP_TIME_ZONE; // Right now, favor the Config setting over value in nvs
                 if (showSNTP & _showSNTPConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_CONN::Set_Time_Zone: New time zone setting is " + timeZone);
-                // saveToNVSDelayCount = 4;
+                saveVariablesToNVS();
             }
+
+            if (showSNTP & _showSNTPConnSteps)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone            is " + timeZone);
 
             // On start-up, the time zone variable is always empty.
             // NOTE: You can not read the Time Zone unless one has been commited to memory first.
@@ -219,6 +216,7 @@ void SNTP::runEvents()
         char strftimeBuf[64];
         strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
 
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
+        if (show & _showRun)
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
     }
 }

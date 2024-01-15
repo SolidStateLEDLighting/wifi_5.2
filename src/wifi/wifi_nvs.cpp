@@ -11,10 +11,10 @@ extern SemaphoreHandle_t semNVSEntry;
 /* NVS */
 bool Wifi::restoreVariablesFromNVS()
 {
-    if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "()");
-
     uint8_t temp = 0;
+
+    if (nvs == nullptr)
+        nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
     if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
     {
@@ -30,7 +30,7 @@ bool Wifi::restoreVariablesFromNVS()
     }
 
     if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): NVS Restore Namespace = wifi");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace start");
 
     bool successFlag = true;
 
@@ -47,7 +47,7 @@ bool Wifi::restoreVariablesFromNVS()
             }
 
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK is " + std::to_string(runStackSizeK));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK       is " + std::to_string(runStackSizeK));
         }
         else
         {
@@ -61,7 +61,7 @@ bool Wifi::restoreVariablesFromNVS()
         if (nvs->getBooleanFromNVS("autoConnect", &autoConnect))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect is " + std::to_string(autoConnect));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect         is " + std::to_string(autoConnect));
         }
         else
         {
@@ -75,7 +75,7 @@ bool Wifi::restoreVariablesFromNVS()
         if (nvs->getU8IntegerFromNVS("hostStatus", &hostStatus))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus is " + std::to_string(hostStatus));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus          is " + std::to_string(hostStatus));
         }
         else
         {
@@ -89,7 +89,7 @@ bool Wifi::restoreVariablesFromNVS()
         if (nvs->getStringFromNVS("ssidPri", &ssidPri))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri is " + ssidPri);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri             is " + ssidPri);
         }
         else
         {
@@ -103,7 +103,7 @@ bool Wifi::restoreVariablesFromNVS()
         if (nvs->getStringFromNVS("ssidPwdPri", &ssidPwdPri))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri is " + ssidPwdPri);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri          is " + ssidPwdPri);
         }
         else
         {
@@ -113,7 +113,7 @@ bool Wifi::restoreVariablesFromNVS()
     }
 
     if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi end");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace end");
 
     if (successFlag)
     {
@@ -133,17 +133,16 @@ bool Wifi::restoreVariablesFromNVS()
 
 bool Wifi::saveVariablesToNVS()
 {
-    if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Start");
-
     //
     // The best idea is to save only changed values.  Right now, we try to save everything.
+    // The NVS object we call will avoid over-writing variables which already hold the correct value.
+    // Later, we may try to add and track 'dirty' bits to avoid trying to save a value that hasn't changed.
     //
+    if (nvs == nullptr)
+        nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
+
     if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
     {
-        if (nvs == nullptr)
-            nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
-
         if (nvs->openNVSStorage("wifi", true) == false) // Read/Write
         {
             routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
@@ -153,7 +152,7 @@ bool Wifi::saveVariablesToNVS()
     }
 
     if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): NVS Save Namespace = wifi");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace start");
 
     bool successFlag = true;
 
@@ -162,7 +161,7 @@ bool Wifi::saveVariablesToNVS()
         if (nvs->saveU8IntegerToNVS("runStackSizeK", runStackSizeK))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK = " + std::to_string(runStackSizeK));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK       = " + std::to_string(runStackSizeK));
         }
         else
         {
@@ -176,7 +175,7 @@ bool Wifi::saveVariablesToNVS()
         if (nvs->saveBooleanToNVS("autoConnect", autoConnect))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect = " + std::to_string(autoConnect));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect         = " + std::to_string(autoConnect));
         }
         else
         {
@@ -190,7 +189,7 @@ bool Wifi::saveVariablesToNVS()
         if (nvs->saveU8IntegerToNVS("hostStatus", hostStatus))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus = " + std::to_string(hostStatus));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus          = " + std::to_string(hostStatus));
         }
         else
         {
@@ -204,7 +203,7 @@ bool Wifi::saveVariablesToNVS()
         if (nvs->saveStringToNVS("ssidPri", &ssidPri))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri = " + ssidPri);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri             = " + ssidPri);
         }
         else
         {
@@ -218,7 +217,7 @@ bool Wifi::saveVariablesToNVS()
         if (nvs->saveStringToNVS("ssidPwdPri", &ssidPwdPri))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri = " + ssidPwdPri);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri          = " + ssidPwdPri);
         }
         else
         {
@@ -228,7 +227,7 @@ bool Wifi::saveVariablesToNVS()
     }
 
     if (show & _showNVS)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi end");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace end");
 
     if (successFlag)
     {

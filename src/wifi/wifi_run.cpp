@@ -26,7 +26,7 @@ void Wifi::run(void)
     {
         switch (wifiOP)
         {
-        case WIFI_OP::Run: // Our target is to keep the run loop cycling at 4Hz. If you change this, other adjustments are required below.
+        case WIFI_OP::Run: // We would like to achieve about a 4Hz entry cadence in the Run state.
         {
             /* Event Processing */
             runEvents(lockGetUint32(&wifiEvents));
@@ -93,6 +93,7 @@ void Wifi::run(void)
                         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SET_AUTOCONNECT");
 
                     autoConnect = true;
+                    saveToNVSDelayCount = 8;
                     break;
                 }
 
@@ -102,6 +103,7 @@ void Wifi::run(void)
                         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT");
 
                     autoConnect = false;
+                    saveToNVSDelayCount = 8;
                     break;
                 }
                 }
@@ -136,7 +138,7 @@ void Wifi::run(void)
 
                     ssidPri = std::string((char *)ptrWifiCmdRequest->data, (size_t)ptrWifiCmdRequest->dataLength);
                     hostStatus |= _rtrPriValid; // If we don't declare the SSID/Password as valid, the algorithm won't allow the connection.
-                    saveVariablesToNVS();
+                    saveVariablesToNVS();       // Can't afford a delay here.
                     break;
                 }
 
@@ -147,7 +149,7 @@ void Wifi::run(void)
 
                     ssidPwdPri = std::string((char *)ptrWifiCmdRequest->data, (size_t)ptrWifiCmdRequest->dataLength);
                     hostStatus |= _rtrPriValid; // If we don't declare the SSID/Password as valid, the algorithm won't allow the connection.
-                    saveVariablesToNVS();
+                    saveVariablesToNVS();       // Can't afford a delay here.
                     break;
                 }
 
@@ -169,7 +171,6 @@ void Wifi::run(void)
             //
             // State Changes
             //
-
             /* Don't run directives automatically until System is fully intializated */
             if (hostDirectivesDelay > 0)
             {
@@ -283,7 +284,7 @@ void Wifi::run(void)
             }
 
             /* saving data to NVS on delay */
-            if (saveToNVSDelayCount > 0)
+            if (saveToNVSDelayCount > 0) // Counts of 4 equal about 1 second.
             {
                 if (--saveToNVSDelayCount < 1)
                     saveVariablesToNVS();
@@ -369,7 +370,7 @@ void Wifi::run(void)
                 if ((ssidPri.compare(configValue) != 0) && (configValue.compare("empty") != 0))
                 {
                     ssidPri = CONFIG_ESP_WIFI_STA_SSID_PRI;
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Using ssidPri    from Configuration with a value of " + ssidPri);
+                    routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): Using ssidPri    from Configuration with a value of " + ssidPri);
                     saveVariablesToNVS();
                 }
                 else
@@ -471,7 +472,7 @@ void Wifi::run(void)
                     ssidPwdPri = "empty";
                     hostStatus &= ~_rtrPriValid; // Can't be valid or active when cleared.
                     hostStatus &= ~_rtrPriActive;
-                    saveVariablesToNVS();
+                    saveVariablesToNVS(); // Can't afford a delay here.
                 }
 
                 wifiDirectivesStep = WIFI_DIRECTIVES::Disconnect_Host;
@@ -494,7 +495,7 @@ void Wifi::run(void)
                     if (autoConnect) // If true, set to false because we are explicitly disconnecting and we don't want the system to reconnect.
                     {
                         autoConnect = false;
-                        saveToNVSDelayCount = 5;
+                        saveToNVSDelayCount = 8;
                     }
 
                     wifiDiscStep = WIFI_DISC::Start; // Start the disconnection process
@@ -515,7 +516,7 @@ void Wifi::run(void)
                     if (!autoConnect) // If false -- set autoConnect to true
                     {
                         autoConnect = true; // Always set autoConnect UNLESS you manually disconnect...
-                        saveToNVSDelayCount = 5;
+                        saveToNVSDelayCount = 8;
                     }
 
                     if (wifiConnState == WIFI_CONN_STATE::WIFI_CONNECTED_STA) // Only consider connecting if not connected...
@@ -539,7 +540,7 @@ void Wifi::run(void)
                                 routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): primary Host Valid");
 
                             hostStatus |= _rtrPriActive; // Indicate that Primary is active
-                            saveVariablesToNVS();
+                            saveVariablesToNVS();        // Can't afford a delay here.
 
                             wifiConnStep = WIFI_CONN::Start;
                             wifiOP = WIFI_OP::Connect;
