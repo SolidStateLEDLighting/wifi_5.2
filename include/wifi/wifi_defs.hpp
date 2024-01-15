@@ -2,30 +2,30 @@
 #include "wifi/wifi_enums.hpp" // Local definitions, structs, and enumerations
 
 /* showWIFI */
-#define _showDrtvSteps 0x01 // LSB
+#define _showDiretiveSteps 0x01 // LSB
 #define _showConnSteps 0x02
 #define _showDiscSteps 0x04
-#define _showProvSteps 0x08 // NOTE: In a larger project I have universal provisioning included
+#define _showProvSteps 0x08 // NOTE: In a larger project I have universal provisioning working
 #define _showShdnSteps 0x10
 #define _showUnused1Steps 0x20
 #define _showUnused2Steps 0x40
 
-/* Provision Directive masks */
-#define _wifiClearPriRouter 0x01  // LSB
-#define _wifiClearSecdRouter 0x02 // NOTE: In a larger project I a have primary and secondary rounter.
-#define _wifiDisconnectRouter 0x04
-#define _wifiProvisionPriRouter 0x08
-#define _wifiProvisionSecdRouter 0x10
-#define _wifiConnectPriRouter 0x20
-#define _wifiConnectSecdRouter 0x40
-#define _wifiXXXXXXXXRouter 0x80
+/* wifiDirective */
+#define _wifiClearPriHostInfo 0x01 // LSB
+#define _wifiClearSecdHostInfo 0x02
+#define _wifiDisconnectHost 0x04    //
+#define _wifiProvisionPriHost 0x08  // NOTE: In a larger project I have service for a primary and secondary modem/router.
+#define _wifiProvisionSecdHost 0x10 //
+#define _wifiConnectPriHost 0x20
+#define _wifiConnectSecdHost 0x40
+#define _wifiXXXXXXXXHost 0x80
 
-/* Router Status masks */
+/* hostStatus */
 #define _rtrPriValid 0x01 // LSB
 #define _rtrPriActive 0x02
 #define _rtrPriUnused2 0x04
 #define _rtrPriUnused3 0x08
-#define _rtrSecdValid 0x10 // Secondary router is currently included inside this project
+#define _rtrSecdValid 0x10 // Secondary host is currently included inside this project
 #define _rtrSecdActive 0x20
 #define _rtrSecdUnused2 0x40
 #define _rtrSecdUnused3 0x80

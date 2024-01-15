@@ -8,14 +8,13 @@
 enum class WIFI_NOTIFY : uint8_t
 {
     NONE = 0,
-    CMD_CLEAR_PRI_ROUTER,  // (Directive) Sets bit to clear SSID and PWD data for the Pri router
-    CMD_DISC_ROUTER,       // (Directive) Sets bit to disconnect any router that may be currently connected
-    CMD_CONN_PRI_ROUTER,   // (Directive) Sets bit to connects to the Pri router
+    CMD_CLEAR_PRI_HOST,    // (Directive) Sets bit to clear SSID and PWD data for the Pri host
+    CMD_DISC_HOST,         // (Directive) Sets bit to disconnect any host that may be currently connected
+    CMD_CONN_PRI_HOST,     // (Directive) Sets bit to connects to the Pri host
     CMD_RUN_DIRECTIVES,    // Runs all commands set in the Directives byte
     CMD_SHUT_DOWN,         // Shuts down the wifi connection completely (ready for object deletion)
     CMD_SET_AUTOCONNECT,   // Sets flag to autoconnect
     CMD_CLEAR_AUTOCONNECT, // Clears flag to autoconnect
-    CMD_PRINT_STATES,
 };
 
 // Queue based commands should be used for commands which may provide input and perhaps return data.
@@ -25,13 +24,6 @@ enum class WIFI_COMMAND : uint8_t
     SET_SSID_PRI,   // Sets SSID Pri
     SET_PASSWD_PRI, // Sets PWD Pri
     SET_SHOW_FLAGS, // Enables and disables logging from a distance
-};
-
-/* Message Operations */
-enum class WIFI_RESP_CODE : int8_t
-{
-    OK = 0,
-    FAIL = -1,
 };
 
 struct WIFI_CmdRequest
@@ -48,22 +40,19 @@ enum class WIFI_OP : uint8_t
     Init,
     Directives,
     Connect,
-    // SNTP_Connect,
     Disconnect,
-    // Provision,
     Shutdown,
     Error,
     Idle,
     Idle_Silent,
 };
 
-enum class WIFI_RUN_DIRECTIVES : uint8_t
+enum class WIFI_DIRECTIVES : uint8_t
 {
     Start,
     Clear_Data,
-    Disconnect_Router,
-    // Provision_Router,
-    Connect_Router,
+    Disconnect_Host,
+    Connect_Host,
     Finished,
 };
 
@@ -82,12 +71,10 @@ enum class WIFI_CONN : uint8_t
 {
     Start,
     Create_Netif_Objects,
-    // Create_Netif_SAP_Object,
     Wifi_Init,
     Register_Handlers,
     Set_Wifi_Mode,
     Set_Sta_Config,
-    // Set_Ap_Config,
     Wifi_Start,
     Wifi_Waiting_To_Connect,
     Wifi_Waiting_For_IP_Address,
@@ -115,25 +102,12 @@ enum class WIFI_SHUTDOWN : uint8_t
     Wifi_Wait_Connection,
     Disconnect_Wifi,
     Wait_For_Disconnection,
-    // Wait_For_Provisioning,
     Final_Items,
     Finished,
     Idle,
 };
 
-enum class WIFI_SNTP_CONN : uint8_t
-{
-    Start,
-    Set_Time_Zone,
-    Configure,
-    SNTP_Init,
-    Waiting_For_Response,
-    Error,
-    SNTP_Time_Valid,
-    Idle,
-};
-
-/* Object States */
+/* Connection States */
 enum class WIFI_CONN_STATE : uint8_t
 {
     NONE = 0,

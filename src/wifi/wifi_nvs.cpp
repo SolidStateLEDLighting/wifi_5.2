@@ -70,17 +70,17 @@ bool Wifi::restoreVariablesFromNVS()
         }
     }
 
-    if (successFlag) // Restore routerStatus
+    if (successFlag) // Restore hostStatus
     {
-        if (nvs->getU8IntegerFromNVS("routerStatus", &routerStatus))
+        if (nvs->getU8IntegerFromNVS("hostStatus", &hostStatus))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): routerStatus is " + std::to_string(routerStatus));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus is " + std::to_string(hostStatus));
         }
         else
         {
             successFlag = false;
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore routerStatus");
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore hostStatus");
         }
     }
 
@@ -185,16 +185,16 @@ bool Wifi::saveVariablesToNVS()
         }
     }
 
-    if (successFlag) // Save routerStatus
+    if (successFlag) // Save hostStatus
     {
-        if (nvs->saveU8IntegerToNVS("routerStatus", routerStatus))
+        if (nvs->saveU8IntegerToNVS("hostStatus", hostStatus))
         {
             if (show & _showNVS)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): routerStatus = " + std::to_string(routerStatus));
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus = " + std::to_string(hostStatus));
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save routerStatus");
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save hostStatus");
             successFlag = false;
         }
     }

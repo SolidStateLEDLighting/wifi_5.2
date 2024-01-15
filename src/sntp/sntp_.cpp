@@ -39,7 +39,7 @@ void SNTP::setShowFlags()
     show = 0;
     show |= _showInit; // Sets this bit
     // show |= _showNVS;
-    // show |= _showRun;
+    show |= _showRun;
     // show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
@@ -47,7 +47,7 @@ void SNTP::setShowFlags()
     // show |= _showPayload;
 
     showSNTP = 0;
-    showSNTP |= _showSNTPConnSteps;
+    // showSNTP |= _showSNTPConnSteps;
 }
 
 void SNTP::setLogLevels()

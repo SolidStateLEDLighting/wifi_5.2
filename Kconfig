@@ -1,5 +1,5 @@
 # put here your custom config value
-menu "Wifi STA Manual Access"
+menu "Wifi STA Manual Setting"
 
 config ESP_WIFI_STA_SSID_PRI
     string "WiFi SSID Primary"
@@ -15,7 +15,7 @@ config ESP_WIFI_STA_PASSWORD_PRI
    
 endmenu
 
-menu "Wifi Simple Network Time Protocol Settings"
+menu "Simple Network Time Protocol Settings"
 
 config SNTP_TIME_ZONE
     string "Time Zone"

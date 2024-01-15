@@ -45,8 +45,11 @@ void SNTP::run(void)
             // setenv("TZ", "EST5EDT", 1); // This is US EST
             // setenv("TZ", "HKT-8", 1);   // This is the Phillippines
 
-            // ESP_LOGW(TAG, "CONFIG_SNTP_TIME_ZONE is %s", CONFIG_SNTP_TIME_ZONE);
-            // ESP_LOGW(TAG, "timeZone is              %s", sntpTimeZone.c_str());
+            if (showSNTP & _showSNTPConnSteps)
+            {
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): CONFIG_SNTP_TIME_ZONE is " + CONFIG_SNTP_TIME_ZONE);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone is              " + timeZone);
+            }
 
             std::string temp = CONFIG_SNTP_TIME_ZONE;
 
@@ -81,7 +84,7 @@ void SNTP::run(void)
             serverName = "time" + std::to_string(serverIndex) + ".google.com";
 
             if (showSNTP & _showSNTPConnSteps)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SNTP_CONN::Configure: SNTP Server set to " + serverName);
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_CONN::Configure: SNTP Server set to " + serverName);
 
             config = {
                 false,                      // smooth_sync
@@ -108,7 +111,7 @@ void SNTP::run(void)
             if (showSNTP & _showSNTPConnSteps)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_CONN::Init - Step " + std::to_string((int)SNTP_CONN::Init));
 
-            timeValid = false; // At every new Wifi connection to a router, we consider SNTP to be invalid.
+            timeValid = false; // At every new Wifi connection to a host, we consider SNTP to be invalid.
 
             ESP_GOTO_ON_ERROR(esp_netif_sntp_init(&config), sntp_Init_err, TAG, "esp_netif_sntp_init(&config) failed");
 
@@ -140,7 +143,7 @@ void SNTP::run(void)
             if (sntpSyncEventCountDown < 4)
             {
                 if (showSNTP & _showSNTPConnSteps)
-                    ESP_LOGW(TAG, "Waiting for SNTP response from %s: %d Secs remaining for this server attempt before rotation...", serverName.c_str(), sntpSyncEventCountDown);
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Waiting for SNTP response from " + serverName + ": " + std::to_string(sntpSyncEventCountDown) + " Secs remaining in this connection attempt before server rotation...");
             }
 
             if (--sntpSyncEventCountDown < 1)
@@ -182,7 +185,7 @@ void SNTP::run(void)
 
     case SNTP_OP::Idle:
     {
-        ESP_LOGW(TAG, "SNTP_OP::Idle...");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_OP::Idle...");
         sntpOP = SNTP_OP::Idle_Silent;
         [[fallthrough]];
     }
@@ -201,7 +204,7 @@ void SNTP::runEvents()
     if (lockGetUint8(&sntpEvents) & _sntpTimeUpdated) // We just received a time sync notification.  Mark the time valid and print out the time.
     {
         if (show & _showRun)
-            ESP_LOGW(TAG, "Printing Time...");
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Printing Time...");
 
         timeValid = true; // Mark SNTP Time valid.  This will declare our System Time value and stop any waiting processes.
 

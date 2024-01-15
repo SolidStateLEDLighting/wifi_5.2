@@ -3,8 +3,6 @@
 
 #include "esp_check.h"
 
-// extern Wifi *ptrWifiInternal;
-
 /* Event Callback Functions - Wifi */
 void Wifi::eventHandlerWifiMarshaller(void *arg, esp_event_base_t event_base, int32_t event_id, void *event_data)
 {
@@ -33,6 +31,7 @@ void Wifi::eventHandlerWifi(esp_event_base_t event_base, int32_t event_id, void 
         {
             // routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_START - wifi connect");
             lockOrUint32(&wifiEvents, _wifiEventSTAStart);
+            break;
         }
 
         case WIFI_EVENT_STA_STOP: // ESP32 station stop

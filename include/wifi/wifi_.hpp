@@ -40,7 +40,6 @@ extern "C"
 
         /* Wifi_Diagnostics */
         void printTaskInfo(void);
-        void printOpState(void);
 
     private:
         char TAG[6] = "_wifi";
@@ -62,7 +61,7 @@ extern "C"
         void setLogLevels(void);
         void createSemaphores(void);
 
-        uint8_t runStackSizeK = 10; // Default/Minimum stacksize
+        uint8_t runStackSizeK = 12; // Default/Minimum stacksize
         TaskHandle_t taskHandleRun = nullptr;
 
         /* SNTP */
@@ -95,17 +94,17 @@ extern "C"
         esp_netif_t *defaultSTANetif = nullptr; // Default STA
         wifi_config_t staConfig;
 
-        uint8_t routerStatus = 0; //
-        std::string ssidPri = "empty";
-        std::string ssidPwdPri = "empty";
+        uint8_t hostStatus = 0;           // A host can be a Modem OR and Router as either have SSIDs and run DHCP.
+        std::string ssidPri = "empty";    //
+        std::string ssidPwdPri = "empty"; //
 
-        bool wifiRouterTimeOut = false; // Violation value
+        bool wifiHostTimeOut = false; // Timeout flags
         bool wifiIPAddressTimeOut = false;
         bool wifiNoValidTimeTimeOut = false;
         bool autoConnect = true; // Normal state is true unless manually disconnecting
 
-        uint8_t noRouterSecsToRestart = 0;     // Seconds count in progress
-        uint8_t noRouterSecsToRestartMax = 15; // Seconds to exire
+        uint8_t noHostSecsToRestart = 0;     // Seconds count in progress
+        uint8_t noHostSecsToRestartMax = 15; // Seconds to exire
 
         uint8_t noIPAddressSecToRestart = 0;
         uint8_t noIPAddressSecToRestartMax = 15;
@@ -115,19 +114,19 @@ extern "C"
 
         QueueHandle_t queueCmdRequests = nullptr; // WIFI <-- ?? (Request Queue is here)
         WIFI_CmdRequest *ptrWifiCmdRequest = nullptr;
+        std::string strCmdPayload = "";
 
         static void runMarshaller(void *);
         void run(void);
         void runEvents(uint32_t);
 
-        WIFI_OP wifiOP = WIFI_OP::Init;                                         // Object States
-        WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;                  //
-        WIFI_INIT wifiInitStep = WIFI_INIT::Finished;                           //
-        WIFI_RUN_DIRECTIVES wifiDirectivesStep = WIFI_RUN_DIRECTIVES::Finished; //
-        WIFI_CONN wifiConnStep = WIFI_CONN::Finished;                           //
-        WIFI_SNTP_CONN sntpConnStep = WIFI_SNTP_CONN::Idle;                     //
-        WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                           //
-        WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;                   //
+        WIFI_OP wifiOP = WIFI_OP::Init;                                 // Object States
+        WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;          //
+        WIFI_INIT wifiInitStep = WIFI_INIT::Finished;                   //
+        WIFI_DIRECTIVES wifiDirectivesStep = WIFI_DIRECTIVES::Finished; //
+        WIFI_CONN wifiConnStep = WIFI_CONN::Finished;                   //
+        WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                   //
+        WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;           //
 
         /* Wifi_Utilities */
         void lockOrUint32(uint32_t *, uint32_t);

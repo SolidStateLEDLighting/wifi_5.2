@@ -40,6 +40,9 @@ extern "C"
     private:
         char TAG[6] = "_sntp";
 
+        SNTP(const SNTP &) = delete;           // Disable copy constructor
+        void operator=(SNTP const &) = delete; // Disable assignment operator
+
         /* Object References */
         System *sys = nullptr;
         NVS *nvs = nullptr;

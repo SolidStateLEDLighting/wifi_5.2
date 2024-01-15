@@ -15,13 +15,7 @@ void Wifi::routeLogByRef(LOG_TYPE _type, std::string *_msg)
         {
         case LOG_TYPE::ERROR:
         {
-            // ESP_LOGE(TAG, "%s", (*msg).c_str()); // Print out our errors here so we see it in the console.
-
-            // if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
-            // {
-            //     nvs->writeErrorStringToNVS(msg); // Errors are stored in NVS in case they need to be accessed after a reboot
-            //     xSemaphoreGive(semNVSEntry);
-            // }
+            ESP_LOGE(TAG, "%s", (*msg).c_str()); // Print out our errors here so we see it in the console.
             break;
         }
 
@@ -54,12 +48,6 @@ void Wifi::routeLogByValue(LOG_TYPE _type, std::string _msg)
         case LOG_TYPE::ERROR:
         {
             ESP_LOGE(TAG, "%s", (msg).c_str()); // Print out our errors here so we see it in the console.
-
-            // if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
-            // {
-            //     nvs->writeErrorStringToNVS(msg); // Errors are stored in NVS in case they need to be accessed after a reboot
-            //     xSemaphoreGive(semNVSEntry);
-            // }
             break;
         }
 

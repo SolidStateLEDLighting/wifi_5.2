@@ -18,8 +18,5 @@ void SNTP::eventHandlerSNTPMarshaller(struct timeval *tv)
 void SNTP::eventHandlerSNTP(struct timeval *tv)
 {
     // The TCP/IP stack's task (tiT) will arrive here to drive this handler.  Be sure to implement locking for any shared variables.
-
-    if (show & _showEvents)
-        ESP_LOGW(TAG, "eventHandlerSNTP()");
     lockOrUint8(&sntpEvents, _sntpTimeUpdated); // Register our event in the sntpEvents flag
 }

@@ -10,12 +10,10 @@ SemaphoreHandle_t semWifiEntry = NULL;
 SemaphoreHandle_t semWifiRouteLock = NULL;
 SemaphoreHandle_t semLockBool = NULL;
 SemaphoreHandle_t semLockUint8 = NULL;
-SemaphoreHandle_t semWifiUint32Lock = NULL;
+SemaphoreHandle_t semLockUint32 = NULL;
 
 /* External Semaphores */
 extern SemaphoreHandle_t semSysEntry;
-
-Wifi *ptrWifiInternal = nullptr; // Hold 'this' pointer for the SNTP event handlers that can't callback with the 'this' pointer.
 
 //
 //
@@ -27,8 +25,6 @@ Wifi *ptrWifiInternal = nullptr; // Hold 'this' pointer for the SNTP event handl
 
 Wifi::Wifi()
 {
-    ptrWifiInternal = this; // We plan on removing this someday when all ESP event handlers can be passed a 'this' pointer during registration.
-
     if (xSemaphoreTake(semSysEntry, portMAX_DELAY)) // Get everything from the system that we need.
     {
         if (sys == nullptr)
@@ -92,16 +88,10 @@ Wifi::~Wifi()
         semLockUint8 = nullptr;
     }
 
-    if (semLockUint8 != nullptr)
+    if (semLockUint32 != nullptr)
     {
-        vSemaphoreDelete(semLockUint8);
-        semLockUint8 = nullptr;
-    }
-
-    if (semWifiUint32Lock != nullptr)
-    {
-        vSemaphoreDelete(semWifiUint32Lock);
-        semWifiUint32Lock = nullptr;
+        vSemaphoreDelete(semLockUint32);
+        semLockUint32 = nullptr;
     }
 
     /* Delete Command Queue items*/
@@ -123,7 +113,7 @@ void Wifi::setShowFlags()
     show = 0;
     show |= _showInit; // Sets this bit
     // show |= _showNVS;
-    // show |= _showRun;
+    show |= _showRun;
     // show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
@@ -131,9 +121,9 @@ void Wifi::setShowFlags()
     // show |= _showPayload;
 
     showWIFI = 0;
-    showWIFI |= _showDrtvSteps;
+    // showWIFI |= _showDiretiveSteps;
     showWIFI |= _showConnSteps;
-    showWIFI |= _showDiscSteps;
+    // showWIFI |= _showDiscSteps;
     // showWIFI |= _showShdnSteps;
 }
 
@@ -177,13 +167,9 @@ void Wifi::createSemaphores()
     if (semLockUint8 != NULL)
         xSemaphoreGive(semLockUint8);
 
-    semLockUint8 = xSemaphoreCreateBinary();
-    if (semLockUint8 != NULL)
-        xSemaphoreGive(semLockUint8);
-
-    semWifiUint32Lock = xSemaphoreCreateBinary();
-    if (semWifiUint32Lock != NULL)
-        xSemaphoreGive(semWifiUint32Lock);
+    semLockUint32 = xSemaphoreCreateBinary();
+    if (semLockUint32 != NULL)
+        xSemaphoreGive(semLockUint32);
 }
 
 TaskHandle_t Wifi::getRunTaskHandle(void)
