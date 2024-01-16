@@ -15,9 +15,6 @@ void Wifi::eventHandlerWifi(esp_event_base_t event_base, int32_t event_id, void 
 
     if (event_base == WIFI_EVENT)
     {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:" + std::to_string(event_id));
-
         switch (event_id)
         {
         case WIFI_EVENT_SCAN_DONE: // ESP32 finish scanning AP
@@ -109,9 +106,6 @@ void Wifi::eventHandlerWifi(esp_event_base_t event_base, int32_t event_id, void 
     }
     else if (event_base == IP_EVENT)
     {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:" + std::to_string(event_id));
-
         switch (event_id)
         {
         case IP_EVENT_STA_GOT_IP: // ESP32 station got IP from connected AP

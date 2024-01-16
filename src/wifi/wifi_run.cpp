@@ -17,7 +17,10 @@ void Wifi::run(void)
     std::string serverName = "";
 
     uint8_t waitingOnHostConnSec = 0, waitingOnIPAddressSec = 0, waitingOnValidTimeSec = 0; // Single second counters
+
+    bool cmdRunDirectives = false;
     uint8_t hostDirectivesDelay = 4;
+
     uint8_t runDelayForSNTP = 4;
 
     WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
@@ -72,9 +75,7 @@ void Wifi::run(void)
                 {
                     if (show & _showRun)
                         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_RUN_DIRECTIVES");
-
-                    wifiDirectivesStep = WIFI_DIRECTIVES::Start;
-                    wifiOP = WIFI_OP::Directives;
+                    cmdRunDirectives = true;
                     break;
                 }
 
@@ -187,6 +188,20 @@ void Wifi::run(void)
                 }
             }
 
+            /* Don't allow directives to run until all other operations are Finished */
+            if (cmdRunDirectives)
+            {
+                if ((wifiInitStep == WIFI_INIT::Finished) &&
+                    (wifiConnStep == WIFI_CONN::Finished) &&
+                    (wifiDiscStep == WIFI_DISC::Finished) &&
+                    (wifiShdnStep == WIFI_SHUTDOWN::Finished))
+                {
+                    cmdRunDirectives = false;
+                    wifiDirectivesStep = WIFI_DIRECTIVES::Start;
+                    wifiOP = WIFI_OP::Directives;
+                }
+            }
+
             /* Connecting to Host on delay*/
             if (waitingOnHostConnSec > 0) // 1 second entry here to connect to Host.  If timeout, we disconnect/reconnect
             {
@@ -291,7 +306,7 @@ void Wifi::run(void)
             }
 
             //
-            // Call run functions for any contained objects that don't have a tasks of their own
+            // Call run functions for any child objects that don't have tasks of their own
             //
             if ((sntp != nullptr) && runDelayForSNTP)
             {
@@ -435,7 +450,7 @@ void Wifi::run(void)
             {
             case WIFI_DIRECTIVES::Start:
             {
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Start");
                 //
                 // Directives are stored and executed in a logical order.
@@ -447,7 +462,7 @@ void Wifi::run(void)
                 // wifiDirectives |= _wifiDisconnectHost;
                 // wifiDirectives |= _wifiConnectPriHost;
                 //
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifiDirectives = " + std::to_string(wifiDirectives));
 
                 if (wifiDirectives > 0)
@@ -460,7 +475,7 @@ void Wifi::run(void)
 
             case WIFI_DIRECTIVES::Clear_Data:
             {
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Clear_Data");
                 //
                 // Clear any data as required.  This is a one type action that is cleared from the Directives.
@@ -481,7 +496,7 @@ void Wifi::run(void)
 
             case WIFI_DIRECTIVES::Disconnect_Host:
             {
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Disconnect_Host");
                 //
                 // Disconnect any host that is active. This a one action that is cleared from the Directives.
@@ -508,7 +523,7 @@ void Wifi::run(void)
 
             case WIFI_DIRECTIVES::Connect_Host:
             {
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Connect_Host");
 
                 if ((wifiDirectives & _wifiConnectPriHost) || (wifiDirectives & _wifiConnectPriHost))
@@ -532,11 +547,11 @@ void Wifi::run(void)
                         //
                         if (wifiDirectives & _wifiConnectPriHost)
                         {
-                            if (showWIFI & _showDiretiveSteps)
+                            if (showWIFI & _showDirectiveSteps)
                                 routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): connectPriHost");
                             wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
 
-                            if (showWIFI & _showDiretiveSteps)
+                            if (showWIFI & _showDirectiveSteps)
                                 routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): primary Host Valid");
 
                             hostStatus |= _rtrPriActive; // Indicate that Primary is active
@@ -555,7 +570,7 @@ void Wifi::run(void)
 
             case WIFI_DIRECTIVES::Finished:
             {
-                if (showWIFI & _showDiretiveSteps)
+                if (showWIFI & _showDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Finished");
 
                 if (wifiDirectives > 0) // If another directive has come in, restart our directives process
@@ -999,7 +1014,7 @@ void Wifi::run(void)
                         vTaskDelay(pdMS_TO_TICKS(10));
 
                     if (showWIFI & _showDiscSteps)
-                        printTaskInfo();
+                        logTaskInfo();
                 }
                 break;
             }

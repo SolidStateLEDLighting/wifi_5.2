@@ -2,7 +2,7 @@
 #include "wifi/wifi_enums.hpp" // Local definitions, structs, and enumerations
 
 /* showWIFI */
-#define _showDiretiveSteps 0x01 // LSB
+#define _showDirectiveSteps 0x01 // LSB
 #define _showConnSteps 0x02
 #define _showDiscSteps 0x04
 #define _showProvSteps 0x08 // NOTE: In a larger project I have universal provisioning working

@@ -39,7 +39,7 @@ extern "C"
         QueueHandle_t getCmdRequestQueue(void); // Outside objects must ask for the CmdQueue
 
         /* Wifi_Diagnostics */
-        void printTaskInfo(void);
+        void printTaskInfoByColumns(void);
 
     private:
         char TAG[6] = "_wifi";
@@ -61,14 +61,14 @@ extern "C"
         void setLogLevels(void);
         void createSemaphores(void);
 
-        uint8_t runStackSizeK = 12; // Default/Minimum stacksize
+        uint8_t runStackSizeK = 14; // Default/Minimum stacksize
         TaskHandle_t taskHandleRun = nullptr;
 
         /* SNTP */
         SNTP *sntp = nullptr;
 
         /* Wifi_Diagnostic */
-        // None that are private
+        void logTaskInfo(void);
 
         /* Wifi_Events */
         uint32_t wifiEvents = 0;

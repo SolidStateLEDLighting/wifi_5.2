@@ -111,9 +111,9 @@ Wifi::~Wifi()
 void Wifi::setShowFlags()
 {
     show = 0;
-    // show |= _showInit; // Sets this bit
+    show |= _showInit; // Sets this bit
     // show |= _showNVS;
-    // show |= _showRun;
+    show |= _showRun;
     // show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
@@ -121,9 +121,9 @@ void Wifi::setShowFlags()
     // show |= _showPayload;
 
     showWIFI = 0;
-    // showWIFI |= _showDiretiveSteps;
-    // showWIFI |= _showConnSteps;
-    // showWIFI |= _showDiscSteps;
+    // showWIFI |= _showDirectiveSteps;
+    showWIFI |= _showConnSteps;
+    showWIFI |= _showDiscSteps;
     // showWIFI |= _showShdnSteps;
 }
 
