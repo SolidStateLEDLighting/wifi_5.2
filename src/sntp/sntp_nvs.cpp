@@ -9,25 +9,19 @@ extern SemaphoreHandle_t semSysEntry;
 extern SemaphoreHandle_t semNVSEntry;
 
 /* NVS */
-bool SNTP::restoreVariablesFromNVS()
+void SNTP::restoreVariablesFromNVS()
 {
+    esp_err_t ret = ESP_OK;
+    bool successFlag = true;
+
     if (nvs == nullptr)
         nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
-    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
-    {
-        if (nvs->openNVSStorage("sntp", true) == false) // We always open the storage in Read/Write mode because some small changes may happen during the restoral process.
-        {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
-            xSemaphoreGive(semNVSEntry);
-            return false;
-        }
-    }
+    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
+        ESP_GOTO_ON_ERROR(nvs->openNVSStorage("sntp"), sntp_restoreVariablesFromNVS_err, TAG, "nvs->openNVSStorage('sntp') failed");
 
     if (show & _showNVS)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): sntp namespace start");
-
-    bool successFlag = true;
 
     if (successFlag) // Restore serverIndex
     {
@@ -73,42 +67,37 @@ bool SNTP::restoreVariablesFromNVS()
     {
         if (show & _showNVS)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Success");
-        nvs->closeNVStorage(true); // Commit changes if any are staged.
     }
     else
-    {
-        nvs->closeNVStorage(false); // No changes
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Failed");
-    }
 
+    nvs->closeNVStorage();
     xSemaphoreGive(semNVSEntry);
-    return successFlag; // Flag holds the correct return value
+    return;
+
+sntp_restoreVariablesFromNVS_err:
+    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error " + esp_err_to_name(ret));
+    xSemaphoreGive(semNVSEntry);
 }
 
-bool SNTP::saveVariablesToNVS()
+void SNTP::saveVariablesToNVS()
 {
     //
     // The best idea is to save only changed values.  Right now, we try to save everything.
-    // The NVS object we call will avoid over-writing variables which already hold the correct value.
-    // Later, we may try to add and track 'dirty' bits to avoid trying to save a value that hasn't changed.
+    // The NVS object we call will avoid over-writing variables which already hold the identical values.
+    // Later, we will add 'dirty' bits to avoid trying to save a value that hasn't changed.
     //
+    esp_err_t ret = ESP_OK;
+    bool successFlag = true;
+
     if (nvs == nullptr)
         nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
-    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
-    {
-        if (nvs->openNVSStorage("sntp", true) == false) // Read/Write
-        {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
-            xSemaphoreGive(semNVSEntry);
-            return false;
-        }
-    }
+    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
+        ESP_GOTO_ON_ERROR(nvs->openNVSStorage("sntp"), sntp_saveVariablesToNVS_err, TAG, "nvs->openNVSStorage('sntp') failed");
 
     if (show & _showNVS)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): sntp namespace start");
-
-    bool successFlag = true;
 
     if (successFlag) // Save serverIndex
     {
@@ -145,14 +134,15 @@ bool SNTP::saveVariablesToNVS()
     {
         if (show & _showNVS)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Success");
-        nvs->closeNVStorage(true); // Commit changes
     }
     else
-    {
         routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Failed");
-        nvs->closeNVStorage(false); // No changes
-    }
 
+    nvs->closeNVStorage();
     xSemaphoreGive(semNVSEntry);
-    return successFlag; // Flag holds the correct return value
+    return;
+
+sntp_saveVariablesToNVS_err:
+    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error " + esp_err_to_name(ret));
+    xSemaphoreGive(semNVSEntry);
 }

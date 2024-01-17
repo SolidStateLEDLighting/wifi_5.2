@@ -74,8 +74,8 @@ extern "C"
         void routeLogByValue(LOG_TYPE, std::string);
 
         /* SNTP_NVS */
-        bool restoreVariablesFromNVS(void);
-        bool saveVariablesToNVS(void);
+        void restoreVariablesFromNVS(void);
+        void saveVariablesToNVS(void);
 
         /* SNTP_Utilities */
         void lockOrUint8(uint8_t *, uint8_t);

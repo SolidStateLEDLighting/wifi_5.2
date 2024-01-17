@@ -9,30 +9,20 @@ extern SemaphoreHandle_t semSysEntry;
 extern SemaphoreHandle_t semNVSEntry;
 
 /* NVS */
-bool Wifi::restoreVariablesFromNVS()
+void Wifi::restoreVariablesFromNVS()
 {
+    esp_err_t ret = ESP_OK;
+    bool successFlag = true;
     uint8_t temp = 0;
 
     if (nvs == nullptr)
         nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
-    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
-    {
-        if (nvs == nullptr)
-            nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
-
-        if (nvs->openNVSStorage("wifi", true) == false) // We always open the storage in Read/Write mode because some small changes may happen during the restoral process.
-        {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
-            xSemaphoreGive(semNVSEntry);
-            return false;
-        }
-    }
+    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
+        ESP_GOTO_ON_ERROR(nvs->openNVSStorage("wifi"), wifi_restoreVariablesFromNVS_err, TAG, "nvs->openNVSStorage('wifi') failed");
 
     if (show & _showNVS)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace start");
-
-    bool successFlag = true;
 
     if (successFlag) // Restore runStackSizeK
     {
@@ -58,7 +48,9 @@ bool Wifi::restoreVariablesFromNVS()
 
     if (successFlag) // Restore autoConnect
     {
-        if (nvs->getBooleanFromNVS("autoConnect", &autoConnect))
+        ret = nvs->getBooleanFromNVS("autoConnect", &autoConnect);
+
+        if (ret == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect         is " + std::to_string(autoConnect));
@@ -66,7 +58,7 @@ bool Wifi::restoreVariablesFromNVS()
         else
         {
             successFlag = false;
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore autoConnect");
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore autoConnect. Error = " + esp_err_to_name(ret));
         }
     }
 
@@ -119,42 +111,37 @@ bool Wifi::restoreVariablesFromNVS()
     {
         if (show & _showNVS)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Success");
-        nvs->closeNVStorage(true); // Commit changes if any are staged.
     }
     else
-    {
-        nvs->closeNVStorage(false); // No changes
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Failed");
-    }
 
+    nvs->closeNVStorage();
     xSemaphoreGive(semNVSEntry);
-    return successFlag; // Flag holds the correct return value
+    return;
+
+wifi_restoreVariablesFromNVS_err:
+    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error " + esp_err_to_name(ret));
+    xSemaphoreGive(semNVSEntry);
 }
 
-bool Wifi::saveVariablesToNVS()
+void Wifi::saveVariablesToNVS()
 {
     //
     // The best idea is to save only changed values.  Right now, we try to save everything.
-    // The NVS object we call will avoid over-writing variables which already hold the correct value.
-    // Later, we may try to add and track 'dirty' bits to avoid trying to save a value that hasn't changed.
+    // The NVS object we call will avoid over-writing variables which already hold the identical values.
+    // Later, we will add 'dirty' bits to avoid trying to save a value that hasn't changed.
     //
+    esp_err_t ret = ESP_OK;
+    bool successFlag = true;
+
     if (nvs == nullptr)
         nvs = NVS::getInstance(); // First, get the nvs object handle if didn't already.
 
-    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY) == pdTRUE)
-    {
-        if (nvs->openNVSStorage("wifi", true) == false) // Read/Write
-        {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to nvs->openNVStorage()");
-            xSemaphoreGive(semNVSEntry);
-            return false;
-        }
-    }
+    if (xSemaphoreTake(semNVSEntry, portMAX_DELAY))
+        ESP_GOTO_ON_ERROR(nvs->openNVSStorage("wifi"), wifi_saveVariablesToNVS_err, TAG, "nvs->openNVSStorage('wifi') failed");
 
     if (show & _showNVS)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifi namespace start");
-
-    bool successFlag = true;
 
     if (successFlag) // Save runStackSizeK
     {
@@ -172,7 +159,7 @@ bool Wifi::saveVariablesToNVS()
 
     if (successFlag) // Save autoConnect
     {
-        if (nvs->saveBooleanToNVS("autoConnect", autoConnect))
+        if (nvs->saveBooleanToNVS("autoConnect", autoConnect) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect         = " + std::to_string(autoConnect));
@@ -233,14 +220,15 @@ bool Wifi::saveVariablesToNVS()
     {
         if (show & _showNVS)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Success");
-        nvs->closeNVStorage(true); // Commit changes
     }
     else
-    {
         routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Failed");
-        nvs->closeNVStorage(false); // No changes
-    }
 
+    nvs->closeNVStorage();
     xSemaphoreGive(semNVSEntry);
-    return successFlag; // Flag holds the correct return value
+    return;
+
+wifi_saveVariablesToNVS_err:
+    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error " + esp_err_to_name(ret));
+    xSemaphoreGive(semNVSEntry);
 }
