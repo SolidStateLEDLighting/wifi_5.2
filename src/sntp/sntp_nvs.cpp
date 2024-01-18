@@ -25,7 +25,9 @@ void SNTP::restoreVariablesFromNVS()
 
     if (successFlag) // Restore serverIndex
     {
-        if (nvs->getU8IntegerFromNVS("serverIndex", &serverIndex))
+        ret = nvs->readU8IntegerFromNVS("serverIndex", &serverIndex);
+
+        if (ret == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex         is " + std::to_string(serverIndex));
@@ -42,18 +44,19 @@ void SNTP::restoreVariablesFromNVS()
         // Grab a snapshot of the default value.  Typically this is accurate during startup as restoreVariablesFromNVS() is called almost never during normal operation.
         std::string holder = timeZone;
 
-        if (nvs->getStringFromNVS("timeZone", &timeZone))
+        if (nvs->readStringFromNVS("timeZone", &timeZone) == ESP_OK)
         {
             if (timeZone.length() < 1) // Do not allow empty strings for thie variable in nvs.
             {
-                timeZone = holder;                           // If the stored variable is of zero length,
-                nvs->saveStringToNVS("timeZone", &timeZone); // save the default value to nvs.
+                timeZone = holder;                                  // If the stored variable is of zero length,
+                ret = nvs->writeStringToNVS("timeZone", &timeZone); // save the default value to nvs.
             }
 
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone            is " + timeZone); // Confirm our restored value
         }
-        else
+
+        if (ret != ESP_OK)
         {
             successFlag = false;
             routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore timeZone");
@@ -101,29 +104,29 @@ void SNTP::saveVariablesToNVS()
 
     if (successFlag) // Save serverIndex
     {
-        if (nvs->saveU8IntegerToNVS("serverIndex", serverIndex))
+        if (nvs->writeU8IntegerToNVS("serverIndex", serverIndex) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): serverIndex         = " + std::to_string(serverIndex));
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save serverIndex");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save serverIndex");
         }
     }
 
     if (successFlag) // Save timeZone
     {
-        if (nvs->saveStringToNVS("timeZone", &timeZone))
+        if (nvs->writeStringToNVS("timeZone", &timeZone) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeZone            = " + timeZone);
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save timeZone");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save timeZone");
         }
     }
 

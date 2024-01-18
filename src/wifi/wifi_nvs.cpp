@@ -26,29 +26,31 @@ void Wifi::restoreVariablesFromNVS()
 
     if (successFlag) // Restore runStackSizeK
     {
-        temp = runStackSizeK; // This will save the default size if value doesn't exist yet in nvs.
+        temp = runStackSizeK;
+        ret = nvs->readU8IntegerFromNVS("runStackSizeK", &temp); // This will save the default size if that value doesn't exist yet in nvs.
 
-        if (nvs->getU8IntegerFromNVS("runStackSizeK", &temp))
+        if (ret == ESP_OK)
         {
             if (temp > runStackSizeK) // Ok to use any value greater than the default size.
             {
                 runStackSizeK = temp;
-                saveToNVSDelayCount = 8; // Save it
+                ret = nvs->writeU8IntegerToNVS("runStackSizeK", runStackSizeK); // Over-write the value with the default minumum value.
             }
 
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK       is " + std::to_string(runStackSizeK));
         }
-        else
+
+        if (ret != ESP_OK)
         {
-            successFlag = false;
             routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Error, Unable to restore runStackSizeK");
+            successFlag = false;
         }
     }
 
     if (successFlag) // Restore autoConnect
     {
-        ret = nvs->getBooleanFromNVS("autoConnect", &autoConnect);
+        ret = nvs->readBooleanFromNVS("autoConnect", &autoConnect);
 
         if (ret == ESP_OK)
         {
@@ -64,7 +66,7 @@ void Wifi::restoreVariablesFromNVS()
 
     if (successFlag) // Restore hostStatus
     {
-        if (nvs->getU8IntegerFromNVS("hostStatus", &hostStatus))
+        if (nvs->readU8IntegerFromNVS("hostStatus", &hostStatus) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus          is " + std::to_string(hostStatus));
@@ -78,7 +80,7 @@ void Wifi::restoreVariablesFromNVS()
 
     if (successFlag) // Restore ssidPri
     {
-        if (nvs->getStringFromNVS("ssidPri", &ssidPri))
+        if (nvs->readStringFromNVS("ssidPri", &ssidPri) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri             is " + ssidPri);
@@ -92,7 +94,7 @@ void Wifi::restoreVariablesFromNVS()
 
     if (successFlag) // Restore ssidPwdPri
     {
-        if (nvs->getStringFromNVS("ssidPwdPri", &ssidPwdPri))
+        if (nvs->readStringFromNVS("ssidPwdPri", &ssidPwdPri) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri          is " + ssidPwdPri);
@@ -145,71 +147,71 @@ void Wifi::saveVariablesToNVS()
 
     if (successFlag) // Save runStackSizeK
     {
-        if (nvs->saveU8IntegerToNVS("runStackSizeK", runStackSizeK))
+        if (nvs->writeU8IntegerToNVS("runStackSizeK", runStackSizeK) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizeK       = " + std::to_string(runStackSizeK));
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save runStackSizeK");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to writeU8IntegerToNVS runStackSizeK");
         }
     }
 
     if (successFlag) // Save autoConnect
     {
-        if (nvs->saveBooleanToNVS("autoConnect", autoConnect) == ESP_OK)
+        if (nvs->writeBooleanToNVS("autoConnect", autoConnect) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): autoConnect         = " + std::to_string(autoConnect));
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save autoConnect");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save autoConnect");
         }
     }
 
     if (successFlag) // Save hostStatus
     {
-        if (nvs->saveU8IntegerToNVS("hostStatus", hostStatus))
+        if (nvs->writeU8IntegerToNVS("hostStatus", hostStatus) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): hostStatus          = " + std::to_string(hostStatus));
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save hostStatus");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save hostStatus");
         }
     }
 
     if (successFlag) // Save ssidPri
     {
-        if (nvs->saveStringToNVS("ssidPri", &ssidPri))
+        if (nvs->writeStringToNVS("ssidPri", &ssidPri) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPri             = " + ssidPri);
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save ssidPri");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save ssidPri");
         }
     }
 
     if (successFlag) // Save ssidPwdPri
     {
-        if (nvs->saveStringToNVS("ssidPwdPri", &ssidPwdPri))
+        if (nvs->writeStringToNVS("ssidPwdPri", &ssidPwdPri) == ESP_OK)
         {
             if (show & _showNVS)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): ssidPwdPri          = " + ssidPwdPri);
         }
         else
         {
-            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save ssidPwdPri");
             successFlag = false;
+            routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Unable to save ssidPwdPri");
         }
     }
 
