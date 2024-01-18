@@ -3,7 +3,7 @@ FILE(GLOB_RECURSE SOURCES src/*.cpp)
 #
 # Exposes components to both source and header files.
 set(WIFI_REQUIRES
-    nvs
+    nvs_5.2
     esp_netif
     esp_wifi
 )
