@@ -1,5 +1,5 @@
 # put here your custom config value
-menu "Wifi STA Manual Setting"
+menu "Wifi STA Manual Settings"
 
 config ESP_WIFI_STA_SSID_PRI
     string "WiFi SSID Primary"
