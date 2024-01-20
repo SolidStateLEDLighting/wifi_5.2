@@ -33,7 +33,7 @@ Wifi::Wifi()
         xSemaphoreGive(semSysEntry);
     }
 
-    sntp = new SNTP(); // To keep code simple and RAII compliant, only instantiate/destroy known in-use objects inside contructor/destructor
+    sntp = new SNTP(); // To stay RAII compliant but not terribly interesting until the Esp32 is running asymmetric multiprocessing.
 
     setShowFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
