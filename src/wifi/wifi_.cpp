@@ -29,22 +29,21 @@ Wifi::Wifi()
     {
         if (sys == nullptr)
             sys = System::getInstance();
-        taskHandleSystemRun = sys->get_runTaskHandle();
+        taskHandleSystemRun = sys->getRunTaskHandle();
         xSemaphoreGive(semSysEntry);
     }
 
-    sntp = new SNTP(); // To keep code simple, only instantiate and destroy inside contructor and destructor
+    sntp = new SNTP(); // To keep code simple and RAII compliant, only instantiate/destroy known in-use objects inside contructor/destructor
 
     setShowFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
     createSemaphores();        // Creates any locking semaphores owned by this object.
     restoreVariablesFromNVS(); // Brings back all our persistant data.
 
-    wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
-    wifiOP = WIFI_OP::Init;
-
     xSemaphoreTake(semWifiEntry, portMAX_DELAY); // Take our semaphore to lock entry during initialization.
 
+    wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
+    wifiOP = WIFI_OP::Init;
     xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, 7, &taskHandleWIFIRun); // Tasks
 }
 

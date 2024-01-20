@@ -6,7 +6,6 @@
 SNTP *ptrSNTPInternal = nullptr; // Hold 'this' pointer for the SNTP event handlers that can't callback with the 'this' pointer.
 
 /* Local Semaphores */
-SemaphoreHandle_t semSNTPEntry = NULL;
 SemaphoreHandle_t semSNTPRouteLock = NULL;
 
 SNTP::SNTP()
@@ -17,6 +16,8 @@ SNTP::SNTP()
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
     createSemaphores();        // Creates any locking semaphores owned by this object.
     restoreVariablesFromNVS(); // Brings back all our persistant data.
+
+    // NOTE: We don't need a locking entry semaphore in this object.
 }
 
 SNTP::~SNTP()
@@ -25,12 +26,6 @@ SNTP::~SNTP()
     {
         vSemaphoreDelete(semSNTPRouteLock);
         semSNTPRouteLock = nullptr;
-    }
-
-    if (semSNTPEntry != nullptr)
-    {
-        vSemaphoreDelete(semSNTPEntry);
-        semSNTPEntry = nullptr;
     }
 }
 
@@ -62,13 +57,6 @@ void SNTP::setLogLevels()
 
 void SNTP::createSemaphores()
 {
-    semSNTPEntry = xSemaphoreCreateBinary(); // External access semaphore
-    if (semSNTPEntry != NULL)
-    {
-        xSemaphoreGive(semSNTPEntry);                // Initialize the Semaphore
-        xSemaphoreTake(semSNTPEntry, portMAX_DELAY); // Take the semaphore to lock entry for initialization.
-    }
-
     semSNTPRouteLock = xSemaphoreCreateBinary();
     if (semSNTPRouteLock != NULL)
         xSemaphoreGive(semSNTPRouteLock);
