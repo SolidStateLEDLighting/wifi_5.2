@@ -37,8 +37,8 @@ Wifi::Wifi()
 
     setShowFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
-    createSemaphores();        // Create any locking semaphores owned by this object.
-    restoreVariablesFromNVS(); // Bring back all our persistant data.
+    createSemaphores();        // Creates any locking semaphores owned by this object.
+    restoreVariablesFromNVS(); // Brings back all our persistant data.
 
     wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
     wifiOP = WIFI_OP::Init;
