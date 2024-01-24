@@ -13,6 +13,9 @@ void Wifi::eventHandlerWifi(esp_event_base_t event_base, int32_t event_id, void 
 {
     // The System Event task (sys_evt) will arrive here to drive this handler.  Be sure to implement locking for any and all shared variables.
 
+    if (show & _showEvents)
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Called by the task named: " + std::string(pcTaskGetName(NULL)));
+
     if (event_base == WIFI_EVENT)
     {
         switch (event_id)

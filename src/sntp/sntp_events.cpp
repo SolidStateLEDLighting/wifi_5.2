@@ -18,6 +18,9 @@ void SNTP::eventHandlerSNTPMarshaller(struct timeval *tv)
 void SNTP::eventHandlerSNTP(struct timeval *tv)
 {
     if (show & _showEvents)
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Called by the task named: " + std::string(pcTaskGetName(NULL)));
+
+    if (show & _showEvents)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeval arrived!!");
 
     // The TCP/IP stack's task (tiT) will arrive here to drive this handler.  Be sure to implement locking for any shared variables.

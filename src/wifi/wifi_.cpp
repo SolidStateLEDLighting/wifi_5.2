@@ -33,7 +33,7 @@ Wifi::Wifi()
         xSemaphoreGive(semSysEntry);
     }
 
-    sntp = new SNTP(); // To stay RAII compliant but not terribly interesting until the Esp32 is running asymmetric multiprocessing.
+    sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
 
     setShowFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
@@ -44,7 +44,7 @@ Wifi::Wifi()
 
     wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
     wifiOP = WIFI_OP::Init;
-    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, 7, &taskHandleWIFIRun); // Tasks
+    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_OFFSET_MID, &taskHandleWIFIRun); // Tasks
 }
 
 Wifi::~Wifi()
