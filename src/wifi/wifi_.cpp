@@ -83,27 +83,29 @@ Wifi::~Wifi()
 
 void Wifi::setShowFlags()
 {
+    // show variable is system wide defined and this exposes for viewing any general processes.
     show = 0;
-    show |= _showInit; // Sets this bit
+    // show |= _showInit; // Sets this bit
     // show |= _showNVS;
-    show |= _showRun;
-    show |= _showEvents;
+    // show |= _showRun;
+    // show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
     // show |= _showProcess;
     // show |= _showPayload;
 
-    showWIFI = 0;
-    // showWIFI |= _showWifiDirectiveSteps;
-    showWIFI |= _showWifiConnSteps;
-    showWIFI |= _showWifiDiscSteps;
-    showWIFI |= _showWifiShdnSteps;
+    // showWifi exposes wifi sub-processes.
+    showWifi = 0;
+    // showWifi |= _showWifiDirectiveSteps;
+    // showWifi |= _showWifiConnSteps;
+    // showWifi |= _showWifiDiscSteps;
+    // showWifi |= _showWifiShdnSteps;
 }
 
 void Wifi::setLogLevels()
 {
 
-    if ((show + showWIFI) > 0)                // Normally, we are interested in the variables inside our object.
+    if ((show + showWifi) > 0)                // Normally, we are interested in the variables inside our object.
         esp_log_level_set(TAG, ESP_LOG_INFO); // If we have any flags set, we need to be sure to turn on the logging so we can see them.
     else
         esp_log_level_set(TAG, ESP_LOG_ERROR); // Likewise, we turn off logging if we are not looking for anything.

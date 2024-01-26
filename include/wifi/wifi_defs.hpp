@@ -1,7 +1,7 @@
 #pragma once
 #include "wifi/wifi_enums.hpp" // Local definitions, structs, and enumerations
 
-/* showWIFI */
+/* showWifi */
 #define _showWifiDirectiveSteps 0x01 // LSB
 #define _showWifiConnSteps 0x02
 #define _showWifiDiscSteps 0x04

@@ -31,10 +31,11 @@ SNTP::~SNTP()
 
 void SNTP::setShowFlags()
 {
+    // show variable is system wide defined and this exposes for viewing any general processes.
     show = 0;
-    show |= _showInit; // Sets this bit
+    // show |= _showInit; // Sets this bit
     // show |= _showNVS;
-    show |= _showRun;
+    // show |= _showRun;
     // show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;

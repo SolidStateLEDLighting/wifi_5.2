@@ -51,7 +51,7 @@ extern "C"
         TaskHandle_t taskHandleSystemRun = nullptr;
 
         uint8_t show = 0;
-        uint8_t showWIFI = 0;
+        uint8_t showWifi = 0;
 
         bool haveIPAddress = false;
 
