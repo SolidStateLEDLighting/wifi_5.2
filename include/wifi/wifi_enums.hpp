@@ -12,9 +12,9 @@ enum class WIFI_NOTIFY : uint8_t
     CMD_DISC_HOST,         // (Directive) Sets bit to disconnect any host that may be currently connected
     CMD_CONN_PRI_HOST,     // (Directive) Sets bit to connects to the Pri host
     CMD_RUN_DIRECTIVES,    // Runs all commands set in the Directives byte
-    CMD_SHUT_DOWN,         // Shuts down the wifi connection completely (ready for object deletion)
     CMD_SET_AUTOCONNECT,   // Sets flag to autoconnect
     CMD_CLEAR_AUTOCONNECT, // Clears flag to autoconnect
+    CMD_SHUT_DOWN,         // Shuts down the wifi connection completely and calls for deletion.
 };
 
 // Queue based commands should be used for commands which may provide input and perhaps return data.
@@ -37,22 +37,23 @@ struct WIFI_CmdRequest
 enum class WIFI_OP : uint8_t
 {
     Run,
+    Shutdown,
     Init,
     Directives,
     Connect,
     Disconnect,
-    Shutdown,
     Error,
     Idle,
     Idle_Silent,
 };
 
-enum class WIFI_DIRECTIVES : uint8_t
+enum class WIFI_SHUTDOWN : uint8_t
 {
     Start,
-    Clear_Data,
-    Disconnect_Host,
-    Connect_Host,
+    Wifi_Wait_Connection,
+    Disconnect_Wifi,
+    Wait_For_Disconnection,
+    Final_Items,
     Finished,
 };
 
@@ -65,6 +66,15 @@ enum class WIFI_INIT : uint8_t
     Auto_Connect,
     Finished,
     Error,
+};
+
+enum class WIFI_DIRECTIVES : uint8_t
+{
+    Start,
+    Clear_Data,
+    Disconnect_Host,
+    Connect_Host,
+    Finished,
 };
 
 enum class WIFI_CONN : uint8_t
@@ -94,17 +104,6 @@ enum class WIFI_DISC : uint8_t
     Destroy_Netif_Objects,
     Finished,
     Error,
-};
-
-enum class WIFI_SHUTDOWN : uint8_t
-{
-    Start,
-    Wifi_Wait_Connection,
-    Disconnect_Wifi,
-    Wait_For_Disconnection,
-    Final_Items,
-    Finished,
-    Idle,
 };
 
 /* Connection States */

@@ -15,16 +15,19 @@ SemaphoreHandle_t semLockUint32 = NULL;
 /* External Semaphores */
 extern SemaphoreHandle_t semSysEntry;
 
-//
-//
-// Menu Config Settings
-//
-// [*] Keep TCP connections when IP changed via LwIP menuconfig.
-//
-//
-
 Wifi::Wifi()
 {
+    // Process of creating this object:
+    // 1) Get the system run task handle
+    // 2) Create the SNTP object.
+    // 3) Set the show flags.
+    // 4) Set log levels
+    // 5) Create all the semaphores
+    // 6) Restore all the object variables from nvs.
+    // 7) Lock the object with its entry semaphore.
+    // 8) Start this object's run task.
+    // 9) Done.
+
     if (xSemaphoreTake(semSysEntry, portMAX_DELAY)) // Get everything from the system that we need.
     {
         if (sys == nullptr)
@@ -33,7 +36,8 @@ Wifi::Wifi()
         xSemaphoreGive(semSysEntry);
     }
 
-    sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
+    if (sntp == nullptr)
+        sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
 
     setShowFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
@@ -44,67 +48,37 @@ Wifi::Wifi()
 
     wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
     wifiOP = WIFI_OP::Init;
-    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_OFFSET_MID, &taskHandleWIFIRun); // Tasks
+    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_OFFSET_MID, &taskHandleWIFIRun);
 }
 
 Wifi::~Wifi()
 {
-    // Please run the Disconnect process before arriving here.
+    // Process of destroying this object:
+    // 1) Lock the object with its entry semaphore.
+    // 2) Send a task notification to Shutdown.
+    // 3) Watch the runTaskHandle (and any other possible task handles) and wait for them to clean up and then become nullptr.
+    // 4) Clean up other resources created by calling task.
+    // 5) UnLock the its entry semaphore.
+    // 6) Destroy all semaphore at the same time (for good organization). Again, these are created by calling task in constructor.
+    // 7) Done.
+
+    // The calling task can still send taskNotifications to the wifi task!
+    while (!xTaskNotify(taskHandleWIFIRun, static_cast<uint32_t>(WIFI_NOTIFY::CMD_SHUT_DOWN), eSetValueWithoutOverwrite))
+        vTaskDelay(pdMS_TO_TICKS(50)); // Wait for the notification to be received.
+    taskYIELD();                       // One last yeild to make sure Idle task can run.
+
+    while (taskHandleWIFIRun != nullptr)
+        vTaskDelay(pdMS_TO_TICKS(50)); // Wait for the wifi task handle to become null.
+    taskYIELD();                       // One last yeild to make sure Idle task can run.
 
     /* Destroy sntp */
     if (sntp != nullptr)
-        sntp->~SNTP();
+        delete sntp; // Has no active tasks so it is simple to destroy
 
-    /* Dispose of the Run task and handle */
-    if (taskHandleWIFIRun != nullptr)
-    {
-        vTaskDelete(taskHandleWIFIRun);
-        taskHandleWIFIRun = nullptr;
-    }
+    xSemaphoreGive(semWifiEntry);
+    destroySemaphores();
 
-    /* Delete Semaphores */
-    if (semWifiEntry != nullptr)
-    {
-        vSemaphoreDelete(semWifiEntry);
-        semWifiEntry = nullptr;
-    }
-
-    if (semWifiRouteLock != nullptr)
-    {
-        vSemaphoreDelete(semWifiRouteLock);
-        semWifiRouteLock = nullptr;
-    }
-
-    if (semLockBool != nullptr)
-    {
-        vSemaphoreDelete(semLockBool);
-        semLockBool = nullptr;
-    }
-
-    if (semLockUint8 != nullptr)
-    {
-        vSemaphoreDelete(semLockUint8);
-        semLockUint8 = nullptr;
-    }
-
-    if (semLockUint32 != nullptr)
-    {
-        vSemaphoreDelete(semLockUint32);
-        semLockUint32 = nullptr;
-    }
-
-    /* Delete Command Queue items*/
-    if (ptrWifiCmdRequest != nullptr)
-    {
-        delete ptrWifiCmdRequest;
-        ptrWifiCmdRequest = nullptr;
-    }
-
-    if (queueCmdRequests != nullptr)
-    {
-        vQueueDelete(queueCmdRequests);
-        queueCmdRequests = nullptr;
-    }
+    // When the destructor returns to the caller, the entire process is finished.
 }
 
 void Wifi::setShowFlags()
@@ -113,17 +87,17 @@ void Wifi::setShowFlags()
     show |= _showInit; // Sets this bit
     // show |= _showNVS;
     show |= _showRun;
-    // show |= _showEvents;
+    show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
     // show |= _showProcess;
     // show |= _showPayload;
 
     showWIFI = 0;
-    // showWIFI |= _showDirectiveSteps;
-    showWIFI |= _showConnSteps;
-    showWIFI |= _showDiscSteps;
-    // showWIFI |= _showShdnSteps;
+    // showWIFI |= _showWifiDirectiveSteps;
+    showWIFI |= _showWifiConnSteps;
+    showWIFI |= _showWifiDiscSteps;
+    showWIFI |= _showWifiShdnSteps;
 }
 
 void Wifi::setLogLevels()
@@ -169,6 +143,40 @@ void Wifi::createSemaphores()
     semLockUint32 = xSemaphoreCreateBinary();
     if (semLockUint32 != NULL)
         xSemaphoreGive(semLockUint32);
+}
+
+void Wifi::destroySemaphores()
+{
+    // Carefully match this list of actions against the one in createSemaphores()
+    if (semWifiEntry != nullptr)
+    {
+        vSemaphoreDelete(semWifiEntry);
+        semWifiEntry = nullptr;
+    }
+
+    if (semWifiRouteLock != nullptr)
+    {
+        vSemaphoreDelete(semWifiRouteLock);
+        semWifiRouteLock = nullptr;
+    }
+
+    if (semLockBool != nullptr)
+    {
+        vSemaphoreDelete(semLockBool);
+        semLockBool = nullptr;
+    }
+
+    if (semLockUint8 != nullptr)
+    {
+        vSemaphoreDelete(semLockUint8);
+        semLockUint8 = nullptr;
+    }
+
+    if (semLockUint32 != nullptr)
+    {
+        vSemaphoreDelete(semLockUint32);
+        semLockUint32 = nullptr;
+    }
 }
 
 TaskHandle_t Wifi::getRunTaskHandle(void)

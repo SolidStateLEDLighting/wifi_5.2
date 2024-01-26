@@ -2,13 +2,13 @@
 #include "wifi/wifi_enums.hpp" // Local definitions, structs, and enumerations
 
 /* showWIFI */
-#define _showDirectiveSteps 0x01 // LSB
-#define _showConnSteps 0x02
-#define _showDiscSteps 0x04
-#define _showProvSteps 0x08 // NOTE: In a larger project I have universal provisioning working
-#define _showShdnSteps 0x10
-#define _showUnused1Steps 0x20
-#define _showUnused2Steps 0x40
+#define _showWifiDirectiveSteps 0x01 // LSB
+#define _showWifiConnSteps 0x02
+#define _showWifiDiscSteps 0x04
+#define _showWifiProvSteps 0x08 // NOTE: In a larger project I have universal provisioning working
+#define _showWifiShdnSteps 0x10
+#define _showWifiUnused1Steps 0x20
+#define _showWifiUnused2Steps 0x40
 
 /* wifiDirective */
 #define _wifiClearPriHostInfo 0x01 // LSB
@@ -18,17 +18,17 @@
 #define _wifiProvisionSecdHost 0x10 //
 #define _wifiConnectPriHost 0x20
 #define _wifiConnectSecdHost 0x40
-#define _wifiXXXXXXXXHost 0x80
+#define _wifiExitRun 0x80
 
 /* hostStatus */
-#define _rtrPriValid 0x01 // LSB
-#define _rtrPriActive 0x02
-#define _rtrPriUnused2 0x04
-#define _rtrPriUnused3 0x08
-#define _rtrSecdValid 0x10 // Secondary host is currently included inside this project
-#define _rtrSecdActive 0x20
-#define _rtrSecdUnused2 0x40
-#define _rtrSecdUnused3 0x80
+#define _hostPriValid 0x01 // LSB
+#define _hostPriActive 0x02
+#define _hostPriUnused2 0x04
+#define _hostPriUnused3 0x08
+#define _hostSecdValid 0x10 // Secondary host is currently included inside this project
+#define _hostSecdActive 0x20
+#define _hostSecdUnused2 0x40
+#define _hostSecdUnused3 0x80
 
 /* wifiEvents */
 #define _wifiEventScanDone 0x00000001

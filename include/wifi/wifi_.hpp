@@ -60,6 +60,7 @@ extern "C"
         void setShowFlags(void); // Pre-Task Functions
         void setLogLevels(void);
         void createSemaphores(void);
+        void destroySemaphores(void);
 
         uint8_t runStackSizeK = 14; // Default/Minimum stacksize
         TaskHandle_t taskHandleRun = nullptr;
@@ -119,6 +120,8 @@ extern "C"
         static void runMarshaller(void *);
         void run(void);
         void runEvents(uint32_t);
+
+        bool shutDown = false;
 
         WIFI_OP wifiOP = WIFI_OP::Init;                                 // Object States
         WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;          //
