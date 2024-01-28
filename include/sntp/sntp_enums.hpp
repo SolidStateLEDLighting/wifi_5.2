@@ -8,7 +8,6 @@ enum class SNTP_OP : uint8_t
     Connect,
     Error,
     Idle,
-    Idle_Silent,
 };
 
 enum class SNTP_CONN : uint8_t

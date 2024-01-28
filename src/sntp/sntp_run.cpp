@@ -182,13 +182,6 @@ void SNTP::run(void)
 
     case SNTP_OP::Idle:
     {
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_OP::Idle...");
-        sntpOP = SNTP_OP::Idle_Silent;
-        [[fallthrough]];
-    }
-
-    case SNTP_OP::Idle_Silent:
-    {
         break;
     }
     }

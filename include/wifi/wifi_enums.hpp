@@ -7,14 +7,13 @@
 // Task Notifications should be used for notifications or commands which need no input and return no data.
 enum class WIFI_NOTIFY : uint8_t
 {
-    NONE = 0,
-    CMD_CLEAR_PRI_HOST,    // (Directive) Sets bit to clear SSID and PWD data for the Pri host
-    CMD_DISC_HOST,         // (Directive) Sets bit to disconnect any host that may be currently connected
-    CMD_CONN_PRI_HOST,     // (Directive) Sets bit to connects to the Pri host
-    CMD_RUN_DIRECTIVES,    // Runs all commands set in the Directives byte
-    CMD_SET_AUTOCONNECT,   // Sets flag to autoconnect
-    CMD_CLEAR_AUTOCONNECT, // Clears flag to autoconnect
-    CMD_SHUT_DOWN,         // Shuts down the wifi connection completely and calls for deletion.
+    CMD_CLEAR_PRI_HOST = 1, // (Directive) Sets bit to clear SSID and PWD data for the Pri host
+    CMD_DISC_HOST,          // (Directive) Sets bit to disconnect any host that may be currently connected
+    CMD_CONN_PRI_HOST,      // (Directive) Sets bit to connects to the Pri host
+    CMD_RUN_DIRECTIVES,     // Runs all commands set in the Directives byte
+    CMD_SET_AUTOCONNECT,    // Sets flag to autoconnect
+    CMD_CLEAR_AUTOCONNECT,  // Clears flag to autoconnect
+    CMD_SHUT_DOWN,          // Shuts down the wifi connection completely and calls for deletion.
 };
 
 // Queue based commands should be used for commands which may provide input and perhaps return data.
@@ -44,7 +43,6 @@ enum class WIFI_OP : uint8_t
     Disconnect,
     Error,
     Idle,
-    Idle_Silent,
 };
 
 enum class WIFI_SHUTDOWN : uint8_t
@@ -111,8 +109,8 @@ enum class WIFI_CONN_STATE : uint8_t
 {
     NONE = 0,
     WIFI_READY_TO_CONNECT,
-    WIFI_CONNECTING_STA, // We created this state to indicate that the Connect command has already been issued.
-    WIFI_CONNECTED_STA,
-    WIFI_DISCONNECTING_STA, // We created this state to indicate that the Disconnect command has already been issued.
-    WIFI_DISCONNECTED,
+    NFY_WIFI_CONNECTING_STA, // We created this state to indicate that the Connect command has already been issued.
+    NFY_WIFI_CONNECTED_STA,
+    NFY_WIFI_DISCONNECTING_STA, // We created this state to indicate that the Disconnect command has already been issued.
+    NFY_WIFI_DISCONNECTED,
 };

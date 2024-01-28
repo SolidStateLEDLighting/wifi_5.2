@@ -29,7 +29,7 @@ extern "C"
         std::string serverName = "";
 
         /* SNTP_Run */
-        SNTP_OP sntpOP = SNTP_OP::Idle_Silent;    // Object States
+        SNTP_OP sntpOP = SNTP_OP::Idle;           // Object States
         SNTP_CONN connStep = SNTP_CONN::Idle;     //
         SNTP_DISC discStep = SNTP_DISC::Finished; //
 
