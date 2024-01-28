@@ -414,11 +414,8 @@ void Wifi::run(void)
             {
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Finished");
-
-                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::WIFI_SHUTDOWN), eSetValueWithoutOverwrite))
-                    vTaskDelay(pdMS_TO_TICKS(50));
-
-                return; // This exits the run function. (notice how the compiler doesn't complain about the missing break statement)
+                // This exits the run function. (notice how the compiler doesn't complain about the missing break statement)
+                return;
             }
             }
             break;
