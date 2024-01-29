@@ -48,7 +48,7 @@ Wifi::Wifi()
 
     wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
     wifiOP = WIFI_OP::Init;
-    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_OFFSET_MID, &taskHandleWIFIRun);
+    xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_MID, &taskHandleWIFIRun);
 }
 
 Wifi::~Wifi()
