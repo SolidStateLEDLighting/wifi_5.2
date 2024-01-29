@@ -689,8 +689,8 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Start");
 
-                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
-                    vTaskDelay(pdMS_TO_TICKS(50));
+                // while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
+                //     vTaskDelay(pdMS_TO_TICKS(50));
 
                 wifiConnStep = WIFI_CONN::Create_Netif_Objects;
                 [[fallthrough]];
@@ -761,7 +761,8 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Set_Wifi_Mode - Step " + std::to_string((int)WIFI_CONN::Set_Wifi_Mode));
 
-                ESP_GOTO_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), wifi_Set_Wifi_Mode_err, TAG, "esp_wifi_set_mode(WIFI_MODE_APSTA) failed");
+                ESP_GOTO_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_STA), wifi_Set_Wifi_Mode_err, TAG, "esp_wifi_set_mode(WIFI_MODE_APSTA) failed");
+                // ESP_GOTO_ON_ERROR(esp_wifi_set_mode(WIFI_MODE_APSTA), wifi_Set_Wifi_Mode_err, TAG, "esp_wifi_set_mode(WIFI_MODE_APSTA) failed");
                 wifiConnStep = WIFI_CONN::Set_Sta_Config;
                 break;
 
@@ -1092,7 +1093,7 @@ void Wifi::run(void)
                             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Returning to Shutdown...");
                     }
                     else if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
-                        wifiOP = WIFI_OP::Directives;
+                        wifiOP = WIFI_OP::Directives; // Make plans to return to Directives it if is not in a Finished state.
 
                     while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
                         vTaskDelay(pdMS_TO_TICKS(50));
@@ -1168,6 +1169,9 @@ void Wifi::runEvents(uint32_t event)
         ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed");
 
         wifiConnState = WIFI_CONN_STATE::NFY_WIFI_CONNECTING_STA;
+
+        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
+            vTaskDelay(pdMS_TO_TICKS(50));
     }
     else if (event & _wifiEventSTAStop)
     {
@@ -1204,6 +1208,9 @@ void Wifi::runEvents(uint32_t event)
 
         if (wifiConnState != WIFI_CONN_STATE::NFY_WIFI_DISCONNECTED) // The first time we disconnect, set the state and send any required notifications.
             wifiConnState = WIFI_CONN_STATE::NFY_WIFI_DISCONNECTED;
+
+        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
+            vTaskDelay(pdMS_TO_TICKS(50));
 
         if (autoConnect)
         {
