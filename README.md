@@ -1,6 +1,6 @@
 # Wifi 5.2 Overview
 
-**This component include Wifi and SNTP functionality**
+**This component includes both Wifi and SNTP functionality**
 
 ## Wifi Object
 WIP
