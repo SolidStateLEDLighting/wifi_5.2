@@ -1117,6 +1117,10 @@ void Wifi::run(void)
 
         case WIFI_OP::Error:
         {
+            // By default we will set the state disconnected
+            while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
+                vTaskDelay(pdMS_TO_TICKS(50));
+
             routeLogByValue(LOG_TYPE::ERROR, errMsg);
             wifiOP = WIFI_OP::Idle;
             break;
