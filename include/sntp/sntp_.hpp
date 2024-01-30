@@ -53,6 +53,7 @@ extern "C"
         void setShowFlags(void);
         void setLogLevels(void);
         void createSemaphores(void);
+        void SNTP::destroySemaphores(void);
 
         /* Working Variables */
         std::string timeZone = "HKT-8"; // Our default time zone selection

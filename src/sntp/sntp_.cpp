@@ -22,11 +22,7 @@ SNTP::SNTP()
 
 SNTP::~SNTP()
 {
-    if (semSNTPRouteLock != nullptr)
-    {
-        vSemaphoreDelete(semSNTPRouteLock);
-        semSNTPRouteLock = nullptr;
-    }
+    destroySemaphores();
 }
 
 void SNTP::setShowFlags()
@@ -61,4 +57,13 @@ void SNTP::createSemaphores()
     semSNTPRouteLock = xSemaphoreCreateBinary();
     if (semSNTPRouteLock != NULL)
         xSemaphoreGive(semSNTPRouteLock);
+}
+
+void SNTP::destroySemaphores()
+{
+    if (semSNTPRouteLock != nullptr)
+    {
+        vSemaphoreDelete(semSNTPRouteLock);
+        semSNTPRouteLock = nullptr;
+    }
 }
