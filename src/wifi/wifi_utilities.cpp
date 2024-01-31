@@ -4,6 +4,26 @@
 extern SemaphoreHandle_t semLockBool;
 extern SemaphoreHandle_t semLockUint32;
 
+bool Wifi::allOperationsFinished() // NOTE: This excludes the Run operation
+{
+    if (wifiShdnStep != WIFI_SHUTDOWN::Finished)
+        return false;
+
+    if (wifiInitStep != WIFI_INIT::Finished)
+        return false;
+
+    if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
+        return false;
+
+    if (wifiConnStep != WIFI_CONN::Finished)
+        return false;
+
+    if (wifiDiscStep != WIFI_DISC::Finished)
+        return false;
+
+    return true;
+}
+
 /* Variable Locking */
 void Wifi::lockOrUint32(uint32_t *variable, uint32_t value)
 {

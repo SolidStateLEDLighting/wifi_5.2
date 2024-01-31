@@ -23,7 +23,6 @@ void Wifi::run(void)
 
     bool cmdRunDirectives = false;
 
-    uint8_t hostDirectivesDelay = 4;
     uint8_t runDelayForSNTP = 4;
 
     WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
@@ -162,33 +161,15 @@ void Wifi::run(void)
             //
             // State Changes
             //
-            /* Don't run directives automatically until System is fully intializated */
-            if (hostDirectivesDelay > 0)
-            {
-                if (--hostDirectivesDelay < 1)
-                {
-                    if (!xSemaphoreTake(semSysEntry, 100)) // Failure to take the system entry semaphore
-                        hostDirectivesDelay = 4;           // Reset delay because system initialization is not complete.
-                    else
-                    {
-                        xSemaphoreGive(semSysEntry);
-                        wifiDirectivesStep = WIFI_DIRECTIVES::Start;
-                        wifiOP = WIFI_OP::Directives;
-                    }
-                }
-            }
 
-            /* Don't allow directives to run until all other operations are Finished */
-            if (cmdRunDirectives)
+            if (cmdRunDirectives) // Do we have any directives?
             {
-                if ((wifiInitStep == WIFI_INIT::Finished) &&
-                    (wifiConnStep == WIFI_CONN::Finished) &&
-                    (wifiDiscStep == WIFI_DISC::Finished) &&
-                    (wifiShdnStep == WIFI_SHUTDOWN::Finished))
+                if (allOperationsFinished()) // Don't allow directives to run until all other operations are Finished
                 {
-                    cmdRunDirectives = false;
-                    wifiDirectivesStep = WIFI_DIRECTIVES::Start;
-                    wifiOP = WIFI_OP::Directives;
+                    cmdRunDirectives = false;                    // Clear the flag
+                    wifiDirectivesStep = WIFI_DIRECTIVES::Start; //
+                    wifiOP = WIFI_OP::Directives;                //
+                    break;                                       // Exit out and allow Directives to run
                 }
             }
 
@@ -199,7 +180,7 @@ void Wifi::run(void)
                 {
                     waitingOnHostConnSec = 5; // We reset the count here early because any break statement can exit our local scope.
 
-                    if (++noHostSecsToRestart > noHostSecsToRestartMax) // Counting the seconds before connection to a host
+                    if (++noHostSecsToRestart > noHostSecsToRestartMax) // Timeout waiting for connection to a host
                     {
                         waitingOnHostConnSec = 0; // stop this second counter
                         noHostSecsToRestart = 0;  //
@@ -210,17 +191,14 @@ void Wifi::run(void)
                         break;
                     }
 
-                    if (noHostSecsToRestart > 4)
+                    if (noHostSecsToRestart > 10) // Start to show warnings of a restart after 10 seconds waiting
                     {
                         if (show & _showRun)
                             routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noHostSecsToRestart Seconds " + std::to_string(noHostSecsToRestart) + "/" + std::to_string(noHostSecsToRestartMax) + " before restart.");
                     }
 
-                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_To_Connect)
-                    {
-                        wifiOP = WIFI_OP::Connect;
-                        break;
-                    }
+                    wifiOP = WIFI_OP::Connect; // Return to this operation
+                    break;
                 }
             }
 
@@ -242,17 +220,14 @@ void Wifi::run(void)
                         break;
                     }
 
-                    if (noIPAddressSecToRestart > 4)
+                    if (noIPAddressSecToRestart > 10) // Start to show warnings of a restart after 10 seconds waiting
                     {
                         if (show & _showRun)
                             routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noIPAddressSecToRestart Seconds " + std::to_string(noIPAddressSecToRestart) + "/" + std::to_string(noIPAddressSecToRestartMax) + " before restart.");
                     }
 
-                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_For_IP_Address)
-                    {
-                        wifiOP = WIFI_OP::Connect;
-                        break;
-                    }
+                    wifiOP = WIFI_OP::Connect; // Return to this operation
+                    break;
                 }
             }
 
@@ -274,17 +249,14 @@ void Wifi::run(void)
                         break;
                     }
 
-                    if (noValidTimeSecToRestart > 4)
+                    if (noValidTimeSecToRestart > 20) // Start to show warnings of a restart after 20 seconds waiting
                     {
                         if (show & _showRun)
                             routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noValidTimeSecToRestart Seconds " + std::to_string(noValidTimeSecToRestart) + "/" + std::to_string(noValidTimeSecToRestartMax) + " before restart.");
                     }
 
-                    if (wifiConnStep == WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time)
-                    {
-                        wifiOP = WIFI_OP::Connect;
-                        break;
-                    }
+                    wifiOP = WIFI_OP::Connect; // Return to this operation
+                    break;
                 }
             }
 
@@ -296,11 +268,12 @@ void Wifi::run(void)
             }
 
             /* Service sntp if it is running. */
-            if ((sntp != nullptr) && runDelayForSNTP)
+            if (runDelayForSNTP > 0)
             {
                 if (--runDelayForSNTP < 1)
                 {
-                    sntp->run();
+                    if (sntp != nullptr)
+                        sntp->run();
                     runDelayForSNTP = 4; // We are calling the sntp run function around 1Hz
                 }
             }
@@ -853,13 +826,13 @@ void Wifi::run(void)
 
                 ESP_GOTO_ON_ERROR(esp_wifi_start(), wifi_Wifi_Start_err, TAG, "WIFI_CONN::Wifi_Start esp_wifi_start() failed");
 
-                waitingOnHostConnSec = 5; // Start the second timer
-                noHostSecsToRestart = 0;  // Zeroing out the time out counter.
+                noHostSecsToRestart = 0; // Zeroing out the time out counter.
 
                 if (showWifi & _showWifiConnSteps) // Announce our intent to Wait To Connect before we start the wait.  This reduces unneeded messaging in that wait state.
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_To_Connect - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_To_Connect));
 
                 wifiConnStep = WIFI_CONN::Wifi_Waiting_To_Connect;
+                waitingOnHostConnSec = 5; // Start the second timer
                 break;
 
             wifi_Wifi_Start_err:

@@ -132,6 +132,7 @@ extern "C"
         WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;           //
 
         /* Wifi_Utilities */
+        bool allOperationsFinished(void);
         void lockOrUint32(uint32_t *, uint32_t);
         void lockAndUint32(uint32_t *, uint32_t);
         uint32_t lockGetUint32(uint32_t *);
