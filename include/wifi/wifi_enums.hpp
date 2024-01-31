@@ -19,10 +19,9 @@ enum class WIFI_NOTIFY : uint8_t
 // Queue based commands should be used for commands which may provide input and perhaps return data.
 enum class WIFI_COMMAND : uint8_t
 {
-    NONE = 0,
-    SET_SSID_PRI,   // Sets SSID Pri
-    SET_PASSWD_PRI, // Sets PWD Pri
-    SET_SHOW_FLAGS, // Enables and disables logging from a distance
+    SET_SSID_PRI = 1, // Sets SSID Pri
+    SET_PASSWD_PRI,   // Sets PWD Pri
+    SET_SHOW_FLAGS,   // Enables and disables logging from a distance
 };
 
 struct WIFI_CmdRequest

@@ -17,11 +17,13 @@ void Wifi::run(void)
     esp_err_t ret = ESP_OK;
     std::string serverName = "";
 
-    uint8_t waitingOnHostConnSec = 0, waitingOnIPAddressSec = 0, waitingOnValidTimeSec = 0; // Single second counters
+    uint8_t waitingOnHostConnSec = 0;  // Single second counters
+    uint8_t waitingOnIPAddressSec = 0; //
+    uint8_t waitingOnValidTimeSec = 0; //
 
     bool cmdRunDirectives = false;
-    uint8_t hostDirectivesDelay = 4;
 
+    uint8_t hostDirectivesDelay = 4;
     uint8_t runDelayForSNTP = 4;
 
     WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
@@ -37,7 +39,7 @@ void Wifi::run(void)
 
             /*  Service all Task Notifications */
             // Task Notifications should be used for notifications or commands which need no input and return no data.
-            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(120)));
+            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(150)));
 
             if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Do I have a notify value?
             {
@@ -107,7 +109,7 @@ void Wifi::run(void)
 
             /*  Service all Queued Incoming Commands */
             // Queue based commands should be used for commands which may provide input and perhaps return data.
-            if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(120))) // We can wait here a while without a negative impact to any other Run operation.
+            if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(100))) // We can wait here a while without a negative impact to any other Run operation.
             {
                 if (ptrWifiCmdRequest != nullptr)
                 {
@@ -120,13 +122,6 @@ void Wifi::run(void)
 
                 switch (ptrWifiCmdRequest->requestedCmd)
                 {
-                case WIFI_COMMAND::NONE:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received the command WIFI_COMMAND::NONE");
-                    break;
-                }
-
                 case WIFI_COMMAND::SET_SSID_PRI:
                 {
                     if (show & _showRun)
@@ -317,7 +312,6 @@ void Wifi::run(void)
                 break;
             }
 
-            vTaskDelay(pdMS_TO_TICKS(50));
             break;
         }
 
