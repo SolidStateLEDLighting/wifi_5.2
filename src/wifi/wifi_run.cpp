@@ -1220,6 +1220,9 @@ void Wifi::runEvents(uint32_t event)
         {
             ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed"); // Try to reconnect (But don't reset our timeout counts)
             wifiConnState = WIFI_CONN_STATE::NFY_WIFI_CONNECTING_STA;
+
+            while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
+                vTaskDelay(pdMS_TO_TICKS(50));
         }
     }
     else if (event & _wifiEventAPStart)
