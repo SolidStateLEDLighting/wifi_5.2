@@ -1185,11 +1185,11 @@ void Wifi::runEvents(uint32_t event)
 
         sntp->timeValid = false; // When we stop the sta connection, sntp time must be invalidated.
 
-        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTING), eSetValueWithoutOverwrite))
-            vTaskDelay(pdMS_TO_TICKS(50));
-
         if (wifiConnState != WIFI_CONN_STATE::NFY_WIFI_DISCONNECTED)
             wifiConnState = WIFI_CONN_STATE::NFY_WIFI_DISCONNECTING_STA; // Only run these items one time at a Disconnection.
+
+        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTING), eSetValueWithoutOverwrite))
+            vTaskDelay(pdMS_TO_TICKS(50));
     }
     else if (event & _wifiEventSTAConnected)
     {
@@ -1198,7 +1198,7 @@ void Wifi::runEvents(uint32_t event)
         lockAndUint32(&wifiEvents, ~_wifiEventSTAConnected); // Clear the flag
         //
         // We have connected to the Host.   This doesn't mean that we have an IP or access to the Internet yet,
-        // but we can confirm the ssid and password are valid for the targetted host.
+        // but we can confirm the ssid and password are valid for the targeted host.
         //
         wifiConnState = WIFI_CONN_STATE::NFY_WIFI_CONNECTED_STA;
     }
