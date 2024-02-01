@@ -47,6 +47,7 @@ enum class WIFI_OP : uint8_t
 enum class WIFI_SHUTDOWN : uint8_t
 {
     Start,
+    Cancel_Directives,
     Disconnect_Wifi,
     Wait_For_Disconnection,
     Final_Items,
@@ -93,6 +94,7 @@ enum class WIFI_CONN : uint8_t
 enum class WIFI_DISC : uint8_t
 {
     Start,
+    Cancel_Connect,
     Deinitialize_SNTP,
     Wifi_Disconnect,
     Reset_Flags,

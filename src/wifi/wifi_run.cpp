@@ -302,12 +302,20 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Start");
 
+                wifiShdnStep = WIFI_SHUTDOWN::Cancel_Directives;
+                [[fallthrough]];
+            }
+
+            case WIFI_SHUTDOWN::Cancel_Directives:
+            {
+                if (showWifi & _showWifiShdnSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Cancel_Directives - Step " + std::to_string((int)WIFI_SHUTDOWN::Cancel_Directives));
+
                 wifiDirectivesStep = WIFI_DIRECTIVES::Finished; // Immediately cancel out all Directives...
                 wifiDirectives = 0;
                 cmdRunDirectives = false;
 
                 wifiShdnStep = WIFI_SHUTDOWN::Disconnect_Wifi;
-                break;
             }
 
             case WIFI_SHUTDOWN::Disconnect_Wifi:
@@ -327,9 +335,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Wait_For_Disconnection - Step " + std::to_string((int)WIFI_SHUTDOWN::Wait_For_Disconnection));
 
-                if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED)
-                    vTaskDelay(100);
-                else
+                if (wifiConnState == WIFI_CONN_STATE::WIFI_DISCONNECTED)
                     wifiShdnStep = WIFI_SHUTDOWN::Final_Items;
                 break;
             }
@@ -381,20 +387,20 @@ void Wifi::run(void)
 
                 if (sntp == nullptr)
                 {
-                    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Who forgot to instantiate nvs?");
+                    errMsg = std::string(__func__) + "(): Who forgot to instantiate nvs?";
                     wifiOP = WIFI_OP::Error; // Effectively, this is an assert without an abort.
                     break;
                 }
 
                 if (taskHandleSystemRun == nullptr)
                 {
-                    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): taskHandleSystemRun is nullptr, but is needed for notifications...");
+                    errMsg = std::string(__func__) + "(): taskHandleSystemRun is nullptr, but is needed for notifications...";
                     wifiOP = WIFI_OP::Error; // Effectively, this is an assert without an abort.
                     break;
                 }
 
                 wifiInitStep = WIFI_INIT::Init_Queues_Commands;
-                break;
+                [[fallthrough]];
             }
 
             case WIFI_INIT::Init_Queues_Commands:
@@ -908,6 +914,15 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Start");
 
+                wifiDiscStep = WIFI_DISC::Cancel_Connect;
+                [[fallthrough]];
+            }
+
+            case WIFI_DISC::Cancel_Connect:
+            {
+                if (showWifi & _showWifiDiscSteps)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Cancel_Connect - Step " + std::to_string((int)WIFI_DISC::Cancel_Connect));
+
                 wifiDiscStep = WIFI_DISC::Deinitialize_SNTP; // Next step by default.
 
                 if (wifiConnStep != WIFI_CONN::Finished)
@@ -987,7 +1002,7 @@ void Wifi::run(void)
                 else // Unknown error
                     errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_disconnect() error : " + esp_err_to_name(ret);
 
-                wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Secondary setting here just in case the Disconnect event doesn't fire as expected.
+                wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Secondary assignment here just in case the Disconnect event doesn't fire as expected.
                 wifiDiscStep = WIFI_DISC::Reset_Flags;
                 break;
             }
@@ -1121,7 +1136,6 @@ void Wifi::run(void)
 
         case WIFI_OP::Idle:
         {
-            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): WIFI_OP::Idle...");
             vTaskDelay(pdMS_TO_TICKS(5000));
             break;
         }
