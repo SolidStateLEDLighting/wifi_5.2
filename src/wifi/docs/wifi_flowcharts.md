@@ -3,6 +3,8 @@ Here are the flowcharts that represent active task and the event handler.
 
 ## wifi_run.cpp flowchart
 This is the most important area of processing for the Wifi object.
+
+**NOTE: This drawing has become so large that you may not be able to view it inside a browser. You may be forced to download it directly.**
 ![Wifi Run Flowchart](./drawings/wifi_flowchart_run.svg)
 
 Here is our Event handing in the run task:

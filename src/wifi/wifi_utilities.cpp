@@ -4,15 +4,12 @@
 extern SemaphoreHandle_t semLockBool;
 extern SemaphoreHandle_t semLockUint32;
 
-bool Wifi::allOperationsFinished() // NOTE: This excludes the Run operation
+bool Wifi::allOperationsFinished() // NOTE: This excludes the Run and Directives operation
 {
     if (wifiShdnStep != WIFI_SHUTDOWN::Finished)
         return false;
 
     if (wifiInitStep != WIFI_INIT::Finished)
-        return false;
-
-    if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
         return false;
 
     if (wifiConnStep != WIFI_CONN::Finished)

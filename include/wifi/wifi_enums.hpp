@@ -47,7 +47,6 @@ enum class WIFI_OP : uint8_t
 enum class WIFI_SHUTDOWN : uint8_t
 {
     Start,
-    Wifi_Wait_Connection,
     Disconnect_Wifi,
     Wait_For_Disconnection,
     Final_Items,
@@ -98,6 +97,7 @@ enum class WIFI_DISC : uint8_t
     Wifi_Disconnect,
     Reset_Flags,
     Unregister_Handlers,
+    Wifi_Deinit,
     Destroy_Netif_Objects,
     Finished,
     Error,
@@ -108,8 +108,8 @@ enum class WIFI_CONN_STATE : uint8_t
 {
     NONE = 0,
     WIFI_READY_TO_CONNECT,
-    NFY_WIFI_CONNECTING_STA, // We created this state to indicate that the Connect command has already been issued.
-    NFY_WIFI_CONNECTED_STA,
-    NFY_WIFI_DISCONNECTING_STA, // We created this state to indicate that the Disconnect command has already been issued.
-    NFY_WIFI_DISCONNECTED,
+    WIFI_CONNECTING_STA, // We created this state to indicate that the Connect command has already been issued.
+    WIFI_CONNECTED_STA,
+    WIFI_DISCONNECTING_STA, // We created this state to indicate that the Disconnect command has already been issued.
+    WIFI_DISCONNECTED,
 };

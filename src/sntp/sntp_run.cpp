@@ -188,6 +188,10 @@ void SNTP::run(void)
     // Implicitly return to the parent object until the next run() call.
 }
 
+//
+// This is where we execute event handler actions.  Removing all this activity from the event handlers eliminates task contention
+// over variables and the event task can get back quickly to other more important event processing activities.
+//
 void SNTP::runEvents()
 {
     // This particular object has only one possible event, so our structure here is simplistic.
