@@ -140,7 +140,7 @@ void SNTP::run(void)
             if (sntpSyncEventCountDown < 4)
             {
                 if (showSNTP & _showSNTPConnSteps)
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Waiting for SNTP response from " + serverName + ": " + std::to_string(sntpSyncEventCountDown) + " Secs remaining in this connection attempt before server rotation...");
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Waiting response from " + serverName + ": " + std::to_string(sntpSyncEventCountDown) + " Secs remain before server rotation...");
             }
 
             if (--sntpSyncEventCountDown < 1)

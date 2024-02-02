@@ -316,6 +316,7 @@ void Wifi::run(void)
                 cmdRunDirectives = false;
 
                 wifiShdnStep = WIFI_SHUTDOWN::Disconnect_Wifi;
+                break;
             }
 
             case WIFI_SHUTDOWN::Disconnect_Wifi:
