@@ -447,7 +447,7 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Using ssidPwdPri from nvs with a value of " + ssidPwdPri);
 
                 wifiInitStep = WIFI_INIT::Auto_Connect;
-                break;
+                [[fallthrough]];
             }
 
             case WIFI_INIT::Auto_Connect:
@@ -514,7 +514,7 @@ void Wifi::run(void)
                 else
                     wifiDirectivesStep = WIFI_DIRECTIVES::Finished;
 
-                break;
+                continue; // We really don't need an RTOS yield here.
             }
 
             case WIFI_DIRECTIVES::Clear_Data:
@@ -562,7 +562,7 @@ void Wifi::run(void)
                     break; // Vector off to Disconnect
                 }
                 wifiDirectivesStep = WIFI_DIRECTIVES::Connect_Host; // Advanced to the next possible directive
-                break;
+                continue;
             }
 
             case WIFI_DIRECTIVES::Connect_Host:
@@ -570,7 +570,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDirectiveSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DIRECTIVES::Connect_Host");
 
-                if ((wifiDirectives & _wifiConnectPriHost) || (wifiDirectives & _wifiConnectPriHost))
+                if (wifiDirectives & _wifiConnectPriHost)
                 {
                     if (!autoConnect) // If false -- set autoConnect to true
                     {
@@ -578,33 +578,27 @@ void Wifi::run(void)
                         saveToNVSDelayCount = 8;
                     }
 
-                    if (wifiConnState == WIFI_CONN_STATE::WIFI_CONNECTED_STA) // Only consider connecting if not connected...
+                    wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
+
+                    if (wifiConnState != WIFI_CONN_STATE::WIFI_CONNECTED_STA) // Only consider connecting if not connected...
                     {
-                        wifiDirectives &= ~_wifiConnectPriHost; // Since we are already connected, cancel any flag that might be set.
-                    }
-                    else
-                    {
-                        if (wifiDirectives & _wifiConnectPriHost)
-                        {
-                            if (showWifi & _showWifiDirectiveSteps)
-                                routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): connectPriHost");
-                            wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
+                        if (showWifi & _showWifiDirectiveSteps)
+                            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): connectPriHost");
 
-                            if (showWifi & _showWifiDirectiveSteps)
-                                routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): primary Host Valid");
+                        if (showWifi & _showWifiDirectiveSteps)
+                            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): primary Host Valid");
 
-                            hostStatus |= _hostPriActive; // Indicate that Primary is active
-                            saveVariablesToNVS();         // Can't afford a delay here.
+                        hostStatus |= _hostPriActive; // Indicate that Primary is active
+                        saveVariablesToNVS();         // Can't afford a delay here.
 
-                            wifiConnStep = WIFI_CONN::Start;
-                            wifiOP = WIFI_OP::Connect;
-                            break;
-                        }
+                        wifiConnStep = WIFI_CONN::Start;
+                        wifiOP = WIFI_OP::Connect;
+                        break;
                     }
                 }
-                else
-                    wifiDirectivesStep = WIFI_DIRECTIVES::Finished;
-                break;
+
+                wifiDirectivesStep = WIFI_DIRECTIVES::Finished;
+                continue;
             }
 
             case WIFI_DIRECTIVES::Finished:
@@ -801,8 +795,8 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps) // Announce our intent to Wait To Connect before we start the wait.  This reduces unneeded messaging in that wait state.
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_To_Connect - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_To_Connect));
 
-                wifiConnStep = WIFI_CONN::Wifi_Waiting_To_Connect;
                 waitingOnHostConnSec = 5; // Start the second timer
+                wifiConnStep = WIFI_CONN::Wifi_Waiting_To_Connect;
                 break;
 
             wifi_Wifi_Start_err:
