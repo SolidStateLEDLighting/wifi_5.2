@@ -1,1 +1,1 @@
-# Wifi State Model Diagrams
+# Wifi State Transition Diagrams
