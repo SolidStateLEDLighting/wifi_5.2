@@ -29,5 +29,14 @@ You may follow these links to Wifi documentation:
 6) [Wifi State Models](./src/wifi/docs/wifi_state_models.md)  
 ___  
 ## SNTP Object
-We create a wrapper object to abstract the IDF's Simple Network Time Protocol functions. This is a companion to the Wifi object and it does not run its own task.  The Wifi object calls the SNTP object's run function periodically to service all its needs.  One of the primary benefits having the Wifi task run the SNTP command loops is that we don't any RTOS locking to share variables between those two objects.  
+We create a wrapper object to abstract the IDF's Simple Network Time Protocol functions. This is a companion to the Wifi object and it does not run its own task.  The Wifi object calls the SNTP object's run function periodically to service all its needs.  One of the primary benefits having the Wifi task run the SNTP command loops is that we don't any RTOS locking to share variables between those two objects. 
+
+You may follow these links to SNTP documentation:
+1) [SNTP Abstractions](./src/wifi/docs/sntp_abstractions.md)
+2) [SNTP Block Diagram](./src/wifi/docs/sntp_blocks.md)
+3) [SNTP Flowcharts](./src/wifi/docs/sntp_flowcharts.md)
+4) [SNTP Operations](./src/wifi/docs/sntp_operations.md)
+5) [SNTP Sequences](./src/wifi/docs/sntp_sequences.md)
+6) [SNTP State Models](./src/wifi/docs/sntp_state_models.md) 
 ___  
+
