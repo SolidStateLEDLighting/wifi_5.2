@@ -19,3 +19,4 @@ For example, if you are putting the unit to Sleep, the normal disconnection is t
 ___  
 ## SNTP Object
 We create a wrapper object to abstract the IDF's Simple Network Time Protocol funtions. This is a companion to the Wifi and it does not run its own task.  The Wifi object calls the SNTP object's run function periodically to service all its needs.  The SNTP functions on its own.
+___  
