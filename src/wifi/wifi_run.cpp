@@ -1108,9 +1108,6 @@ void Wifi::run(void)
                     }
                     else if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
                         wifiOP = WIFI_OP::Directives; // Make plans to return to Directives it if is not in a Finished state.
-
-                    if (showWifi & _showWifiDiscSteps)
-                        logTaskInfo(); // Task diagnotics
                 }
                 break;
             }
@@ -1160,13 +1157,13 @@ void Wifi::runEvents(uint32_t event)
 
     if (event & _wifiEventScanDone) // Handle only one event during any run loop
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventScanDone");
         lockAndUint32(&wifiEvents, ~_wifiEventScanDone); // Clear the flag
     }
     else if (event & _wifiEventSTAStart)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAStart");
         lockAndUint32(&wifiEvents, ~_wifiEventSTAStart); // Clear the flag
 
@@ -1174,7 +1171,7 @@ void Wifi::runEvents(uint32_t event)
         {
             wifiConnState = WIFI_CONN_STATE::WIFI_READY_TO_CONNECT;
 
-            if (show & _showRun)
+            if (show & _showEvents)
                 routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifiConnState = WIFI_READY_TO_CONNECT");
         }
 
@@ -1189,7 +1186,7 @@ void Wifi::runEvents(uint32_t event)
     }
     else if (event & _wifiEventSTAStop)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAStop");
         lockAndUint32(&wifiEvents, ~_wifiEventSTAStop); // Clear the flag
 
@@ -1203,7 +1200,7 @@ void Wifi::runEvents(uint32_t event)
     }
     else if (event & _wifiEventSTAConnected)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAConnected");
         lockAndUint32(&wifiEvents, ~_wifiEventSTAConnected); // Clear the flag
         //
@@ -1214,7 +1211,7 @@ void Wifi::runEvents(uint32_t event)
     }
     else if (event & _wifiEventSTADisconnected)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTADisconnected");
         lockAndUint32(&wifiEvents, ~_wifiEventSTADisconnected); // Clear the flag
 
@@ -1237,37 +1234,37 @@ void Wifi::runEvents(uint32_t event)
     }
     else if (event & _wifiEventAPStart)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSAStart");
         lockAndUint32(&wifiEvents, ~_wifiEventAPStart); // Clear the flag
     }
     else if (event & _wifiEventAPStop)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSAStop");
         lockAndUint32(&wifiEvents, ~_wifiEventAPStop); // Clear the flag
     }
     else if (event & _wifiEventAPConnected)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventAPConnected");
         lockAndUint32(&wifiEvents, ~_wifiEventAPConnected); // Clear the flag
     }
     else if (event & _wifiEventAPDisconnected)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventAPDisconnected");
         lockAndUint32(&wifiEvents, ~_wifiEventAPDisconnected); // Clear the flag
     }
     else if (event & _wifiEventBeaconTimeout)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventBeaconTimeout");
         lockAndUint32(&wifiEvents, ~_wifiEventBeaconTimeout); // Clear the flag
     }
     else if (event & _ipEventSTAGotIp)
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _ipEventSTAGotIp");
         lockAndUint32(&wifiEvents, ~_ipEventSTAGotIp); // Clear the flag
 

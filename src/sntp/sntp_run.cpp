@@ -197,7 +197,7 @@ void SNTP::runEvents()
     // This particular object has only one possible event, so our structure here is simplistic.
     if (lockGetUint8(&sntpEvents) & _sntpTimeUpdated) // We just received a time sync notification.  Mark the time valid and print out the time.
     {
-        if (show & _showRun)
+        if (show & _showEvents)
             routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Printing Time...");
 
         timeValid = true; // Mark SNTP Time valid.  This will declare our System Time value and stop any waiting processes.
@@ -213,7 +213,7 @@ void SNTP::runEvents()
         char strftimeBuf[64];
         strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
 
-        if (show & _showRun)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
+        // if (show & _showEvents)
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
     }
 }
