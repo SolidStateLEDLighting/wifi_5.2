@@ -987,14 +987,22 @@ void Wifi::run(void)
                     else if (ret == ESP_ERR_WIFI_NOT_INIT)
                         routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): WiFi is not initialized by esp_wifi_init - esp_wifi_stop()");
                     else // Unknown error
+                    {
                         errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_stop() error : " + esp_err_to_name(ret);
+                        wifiDiscStep = WIFI_DISC::Error;
+                        continue;
+                    }
                 }
                 else if (ret == ESP_ERR_WIFI_NOT_INIT)
                     routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): WiFi is not initialized by esp_wifi_init - esp_wifi_disconnect()");
                 else if (ret == ESP_ERR_WIFI_NOT_STARTED)
                     routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): WiFi is not started by esp_wifi_start - esp_wifi_disconnect()");
                 else // Unknown error
+                {
                     errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_disconnect() error : " + esp_err_to_name(ret);
+                    wifiDiscStep = WIFI_DISC::Error;
+                    continue;
+                }
 
                 wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Secondary assignment here just in case the Disconnect event doesn't fire as expected.
                 wifiDiscStep = WIFI_DISC::Reset_Flags;
@@ -1125,7 +1133,7 @@ void Wifi::run(void)
 
             routeLogByValue(LOG_TYPE::ERROR, errMsg);
             wifiOP = WIFI_OP::Idle;
-            break;
+            continue;
         }
 
         case WIFI_OP::Idle:
