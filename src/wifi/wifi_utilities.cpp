@@ -1,6 +1,7 @@
 #include "wifi/wifi_.hpp"
 #include "system_.hpp"
 
+/* External Semaphores */
 extern SemaphoreHandle_t semLockBool;
 extern SemaphoreHandle_t semLockUint32;
 

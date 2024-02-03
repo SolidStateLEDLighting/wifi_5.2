@@ -3,6 +3,7 @@
 
 #include "esp_check.h"
 
+/* External Semaphores */
 extern SemaphoreHandle_t semWifiEntry;
 
 void Wifi::runMarshaller(void *arg)

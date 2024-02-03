@@ -24,7 +24,7 @@ class System;
 class NVS;
 class SNTP;
 
-/* External Variables */
+/* External Semaphores */
 extern SemaphoreHandle_t semSysEntry;
 
 extern "C"

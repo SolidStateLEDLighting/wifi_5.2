@@ -12,8 +12,8 @@ void SNTP::eventHandlerSNTPMarshaller(struct timeval *tv)
 }
 
 //
-// NOTE:  We do not allow long processes to execute inside this handler.  Our goal is to release the calling Task quickly because it has
-// other more pressing work to handle.  All events are off-loaded to another run process.
+// NOTE:  We do not allow long processes to execute inside this handler.  Our goal is to release the calling task quickly because it has
+// other more pressing work to handle.  All events are off-loaded to the standard run process.
 //
 void SNTP::eventHandlerSNTP(struct timeval *tv)
 {

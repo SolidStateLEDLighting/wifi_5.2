@@ -7,7 +7,7 @@
 // At is also at this location (in my more advanced project) that I store Error information to Flash.  This makes is possible
 // to transmit error logging to the cloud after a reboot.
 //
-/* Local Semaphore */
+/* External Semaphores */
 extern SemaphoreHandle_t semSNTPRouteLock;
 
 /* Logging */
