@@ -181,6 +181,7 @@ void Wifi::destroySemaphores()
     }
 }
 
+/* Public Member Functions */
 TaskHandle_t Wifi::getRunTaskHandle(void)
 {
     return taskHandleWIFIRun;
