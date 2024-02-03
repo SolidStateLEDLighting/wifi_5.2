@@ -159,7 +159,7 @@ void Wifi::run(void)
             }
 
             //
-            // State Changes
+            // State Changes and Pending Actions
             //
 
             if (shutDown) // Don't reset the flag here...

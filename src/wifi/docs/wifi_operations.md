@@ -7,6 +7,7 @@ We define a list of wifi operations in wif_enum.hpp.  There are currently 8.  Th
 * Init Operation
 * Directive Operation
 * Connect Operation
+* Disconnect Operation
 * Error Operation
 * Idle Operation
 ![Run Operation Diagram](./drawings/wifi_operations_block.svg)
