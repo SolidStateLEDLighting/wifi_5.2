@@ -161,7 +161,7 @@ void SNTP::run(void)
         case SNTP_CONN::Error:
         {
             connStep = SNTP_CONN::Idle; // Park this state
-            sntpOP = SNTP_OP::Error;    // Vector to error handling
+            sntpOP = SNTP_OP::Error;    // Activate error handling
             break;
         }
 
