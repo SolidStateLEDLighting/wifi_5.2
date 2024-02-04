@@ -1,2 +1,2 @@
-# SNTP Sequences
+# SNTP Sequences  
 ___ 
