@@ -1,6 +1,6 @@
 # Wifi 5.2 Component
 
-This components has been test with: 
+This components has been tested with: 
 * **ESP-IDF-Advanced-Template-Alpha-5.2**
 
 **This component includes both Wifi and SNTP functionality**
