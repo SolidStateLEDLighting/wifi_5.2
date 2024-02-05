@@ -213,7 +213,7 @@ void SNTP::runEvents()
         char strftimeBuf[64];
         strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
 
-        // if (show & _showEvents)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
+        if (show & _showEvents)
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
     }
 }
