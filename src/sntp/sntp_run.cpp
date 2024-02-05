@@ -213,8 +213,6 @@ void SNTP::runEvents()
         char strftimeBuf[64];
         strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
 
-        // The runEvents function may lag the real event by about 1/4 second.  If you watch the SNTP update the time every hour, you'll
-        // notice that this reading lags 1 second about every 4 to 6 hours.
         // if (show & _showEvents)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
     }
