@@ -6,5 +6,13 @@ There is no run operation here because the SNTP object has no run task.  SNTP is
 * Init Operation
 * Error Operation
 * Idle Operation
-![Run Operation Diagram](./drawings/sntp_operations_block.svg)
+![Run Task Operation Diagram](./drawings/sntp_operations_block.svg)
+### Init Operation
+Most objects have an initialization startup requirement.  Initialization typically occurs right after the creation of the object and during this time the object is usually locked so the outside world can't interfere with it's initialization.   At this time, we don't look for RTOS communication.
+
+### Error Operation
+All Error operations everywhere try to handle any recoverable errors at the level for which they exist.  Usually, errors are forwarded on until they reach their highest level and then an error message is routed to a message handler.
+
+### Idle Operation
+Idle operation is more of a developmental tool where you can intercept unexepected results.
 ___  
