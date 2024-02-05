@@ -20,10 +20,13 @@ The Shutdown Operation is a fast method to disconnect wifi and destory the conta
 Most objects have an initialization startup requirement.  Initialization typically occurs right after the creation of the object and during this time the object is usually locked so the outside world can't interfere with it's initialization.   At this time, we don't look for RTOS communication.
 
 ### Directives Operation
+The directives is a byte of data that helps the Wifi complete one or more operations in a sequence.  Once the directives byte is set by a series of notifications, then another task notificiation command is sent to start the directives.  The directive will always run in order based on the ordered structure of the directives.
 
 ### Connect Operation
+Asks Wifi to connection to a host.  
 
 ### Disconnect Operation
+Asks Wifi to disconnection from a host.
 
 ### Error Operation
 All Error operations everywhere try to handle any recoverable errors at the level for which they exist.  Usually, errors are forwarded on until they reach their highest level and then an error message is routed to a message handler.
