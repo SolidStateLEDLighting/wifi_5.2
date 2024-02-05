@@ -130,6 +130,7 @@ void SNTP::run(void)
         {
             if (timeValid) // Did our time synchronization arrive?  If so, then we are done waitingForSNTPNotification.
             {
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_CONN::Waiting_For_Response: TIME RECEIVED");
                 waitingForSNTPNotification = false; // Reset our timeout variables.
                 waitSecsCount = 0;                  //
                 connStep = SNTP_CONN::Idle;         // Our SNTP process is over, go to an idle state.
