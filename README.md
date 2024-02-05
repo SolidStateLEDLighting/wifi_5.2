@@ -22,7 +22,7 @@ The alternative choice is to invoke a **Shutdown** command.   This is a faster p
 For example, if you are putting the unit to Sleep, the normal disconnection is the recommended approach.  But, if you are going to reboot or restart the object, then a Shutdown is permissable.
 
 ### Observational Note:
-The Wifi connection/disconnection process has to be done just right for your unit to correctly entire power saving modes.  Through a very long series of tests and experimentation, it is clear that sloppy programming will lead to Esp modules that will run hotter than they should.   If you follow all the details, the results should be so good, that you feel very little extra heat on the Esp32 unit while it is sitting there idle wirelessly connected to a host. 
+The Wifi connection/disconnection process has to be done just right for your unit to correctly enter power saving modes.  Through a very long series of tests and experimentation, it is clear that sloppy programming will lead to Esp modules that will run hotter than they should.   If you follow all the details, the results should be so good, that you feel very little extra heat on the Esp32 unit while it is sitting there idle wirelessly connected to a host. 
 
 You may follow these links to Wifi documentation:
 1) [Wifi Abstractions](./src/wifi/docs/wifi_abstractions.md)
