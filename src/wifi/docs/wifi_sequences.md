@@ -1,4 +1,13 @@
 # Wifi Sequences  
 
-WIP
+Some of the sequences you may be interested in were mentioned previosly in the System Sequences document.  Those topics include:
+* The System Creating the Wifi Object
+* The System Destroying the Wifi Object
+* The System Calling on Wifi to Connect
+* The System Calling on Wifi to Disconnect
+Please refer to that document for those sequences.
+
+Inside the Wifi object we can further detail and sequencing between Wifi calls and Event responses.
+![Wifi Connectng Sequence](./drawings/wifi_connecting_sequence.svg)
+More detail will all the possible outcomes are included in the flowchart.
 ___  
