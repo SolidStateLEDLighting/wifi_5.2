@@ -88,7 +88,7 @@ void Wifi::setShowFlags()
     show |= _showInit; // Sets this bit
     // show |= _showNVS;
     // show |= _showRun;
-    // show |= _showEvents;
+    show |= _showEvents;
     // show |= _showJSONProcessing;
     // show |= _showDebugging;
     // show |= _showProcess;

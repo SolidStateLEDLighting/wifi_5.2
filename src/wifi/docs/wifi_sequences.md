@@ -11,3 +11,5 @@ Inside the Wifi object we can further detail and sequencing between Wifi calls a
 ![Wifi Connectng Sequence](./drawings/wifi_connecting_sequence.svg)
 More detail with all the possible outcomes are included in the flowchart.
 ___  
+Here we are examining the Wifi Disconnection sequence.
+![Wifi Disconnection Sequence](./drawings/wifi_disconnecting_sequence.svg)
