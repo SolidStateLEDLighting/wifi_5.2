@@ -1,3 +1,4 @@
 # SNTP Blocks  
-There are no blocks within the SNTP object.  This object is extremely small.
+This is our file organization and how it relates to the class structure.
+![SNTP Block Diagram](./drawings/sntp_block.svg)
 ___ 
