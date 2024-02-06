@@ -1,4 +1,3 @@
 # SNTP Flowcharts  
-
 WIP
 ___ 
