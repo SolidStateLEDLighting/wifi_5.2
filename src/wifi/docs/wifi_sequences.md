@@ -1,6 +1,6 @@
 # Wifi Sequences  
 
-Some of the sequences you may be interested in were mentioned previosly in the System Sequences document.  Those topics include:
+Some of the sequences you may be interested in were mentioned previously in the System Sequences document.  Those topics include:
 * The System Creating the Wifi Object
 * The System Destroying the Wifi Object
 * The System Calling on Wifi to Connect
