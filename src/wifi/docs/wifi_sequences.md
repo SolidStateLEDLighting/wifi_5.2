@@ -9,5 +9,5 @@ Please refer to that document for those sequences.
 
 Inside the Wifi object we can further detail and sequencing between Wifi calls and Event responses.
 ![Wifi Connectng Sequence](./drawings/wifi_connecting_sequence.svg)
-More detail will all the possible outcomes are included in the flowchart.
+More detail with all the possible outcomes are included in the flowchart.
 ___  
