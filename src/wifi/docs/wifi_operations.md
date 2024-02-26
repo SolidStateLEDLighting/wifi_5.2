@@ -10,7 +10,7 @@ We define a list of 8 wifi operations in wifi_enum.hpp.  These operations lead t
 * Idle Operation  
 ![Wifi Operations](./drawings/wifi_operations_block.svg)
 ### Run Operation
-In all objects, a Run operation (contained inside a Run task) is centeral to it's normal operation.  Most of a task's time is spent here.  The Run operation watches for any RTOS communications, it looks for pending actions, and sometimes state changes.  The object's Run task will always return to the centeralized Run operation when waiting is require before the next required action.  In most cases, we have set the loop cycles to 4Hz, but this could be adjusted if processing in any particular object requires a lower latency response time.
+In all objects, a Run operation (contained inside a Run task) is centeral to it's normal operation.  Much of a task's operational time is spent here.  It looks for pending actions, and sometimes state changes.  This this case we may be responding to a Directive or making calles to contained objects (sntp-run()).
 
 ### Shutdown Operation
 The Shutdown Operation is a fast method to disconnect wifi and destory the containted SNTP object.  You would call Shutdown when you intend to destory Wifi or do an organized reboot of the entire device.  For the more gentile approach to closing down a connection, use the Directive Operation option.  In Directives, they system wait patienctly for a Connection to be stable before it commences with a Disconnection process.
