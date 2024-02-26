@@ -1270,7 +1270,6 @@ void Wifi::runEvents()
             }
         }
     }
-
     return;
 
 wifi_eventRun_err:
