@@ -3,14 +3,9 @@
 
 #include "freertos/task.h" // RTOS libraries
 
-#include "esp_check.h"
-
 /* Local Semaphores */
 SemaphoreHandle_t semWifiEntry = NULL;
 SemaphoreHandle_t semWifiRouteLock = NULL;
-SemaphoreHandle_t semLockBool = NULL;
-SemaphoreHandle_t semLockUint8 = NULL;
-SemaphoreHandle_t semLockUint32 = NULL;
 
 /* External Semaphores */
 extern SemaphoreHandle_t semSysEntry;
@@ -22,7 +17,7 @@ Wifi::Wifi()
     // 2) Create the SNTP object.
     // 3) Set the show flags.
     // 4) Set log levels
-    // 5) Create all the semaphores
+    // 5) Create all the RTOS resources
     // 6) Restore all the object variables from nvs.
     // 7) Lock the object with its entry semaphore.
     // 8) Start this object's run task.
@@ -39,14 +34,16 @@ Wifi::Wifi()
     if (sntp == nullptr)
         sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
 
-    setShowFlags();            // Enable logging statements for any area of concern.
-    setLogLevels();            // Manually sets log levels for other tasks down the call stack.
-    createSemaphores();        // Creates any locking semaphores owned by this object.
+    setShowFlags();     // Enable logging statements for any area of concern.
+    setLogLevels();     // Manually sets log levels for other tasks down the call stack.
+    createSemaphores(); // Creates any locking semaphores owned by this object.
+    createQueues();     // We use queues in several areas.
+
     restoreVariablesFromNVS(); // Brings back all our persistant data.
 
-    xSemaphoreTake(semWifiEntry, portMAX_DELAY); // Take our semaphore to lock entry during initialization.
+    xSemaphoreTake(semWifiEntry, portMAX_DELAY); // Take our semaphore and thereby lock entry to this object during its initialization.
 
-    wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.
+    wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.  This takes some time.
     wifiOP = WIFI_OP::Init;
     xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_MID, &taskHandleWIFIRun);
 }
@@ -54,8 +51,8 @@ Wifi::Wifi()
 Wifi::~Wifi()
 {
     // Process of destroying this object:
-    // 1) Lock the object with its entry semaphore.
-    // 2) Send a task notification to Shutdown.
+    // 1) Lock the object with its entry semaphore. (done by the caller)
+    // 2) Send a task notification to Shutdown. (Looks like we are sending it to ourselves here, but this is not so...)
     // 3) Watch the runTaskHandle (and any other possible task handles) and wait for them to clean up and then become nullptr.
     // 4) Clean up other resources created by calling task.
     // 5) UnLock the its entry semaphore.
@@ -75,8 +72,9 @@ Wifi::~Wifi()
     if (sntp != nullptr)
         delete sntp; // Has no active tasks so it is simple to destroy
 
-    xSemaphoreGive(semWifiEntry);
+    xSemaphoreGive(semWifiEntry); // Remember, this is the calling task which calls to "Give"
     destroySemaphores();
+    destroyQueues();
 
     // When the destructor returns to the caller, the entire process is finished.
 }
@@ -99,7 +97,7 @@ void Wifi::setShowFlags()
     // showWifi |= _showWifiDirectiveSteps;
     showWifi |= _showWifiConnSteps;
     showWifi |= _showWifiDiscSteps;
-    showWifi |= _showWifiShdnSteps;
+    // showWifi |= _showWifiShdnSteps;
 }
 
 void Wifi::setLogLevels()
@@ -133,18 +131,6 @@ void Wifi::createSemaphores()
     semWifiRouteLock = xSemaphoreCreateBinary();
     if (semWifiRouteLock != NULL)
         xSemaphoreGive(semWifiRouteLock);
-
-    semLockBool = xSemaphoreCreateBinary();
-    if (semLockBool != NULL)
-        xSemaphoreGive(semLockBool);
-
-    semLockUint8 = xSemaphoreCreateBinary();
-    if (semLockUint8 != NULL)
-        xSemaphoreGive(semLockUint8);
-
-    semLockUint32 = xSemaphoreCreateBinary();
-    if (semLockUint32 != NULL)
-        xSemaphoreGive(semLockUint32);
 }
 
 void Wifi::destroySemaphores()
@@ -161,23 +147,53 @@ void Wifi::destroySemaphores()
         vSemaphoreDelete(semWifiRouteLock);
         semWifiRouteLock = nullptr;
     }
+}
 
-    if (semLockBool != nullptr)
+void Wifi::createQueues()
+{
+    esp_err_t ret = ESP_OK;
+
+    if (queueEvents == nullptr)
     {
-        vSemaphoreDelete(semLockBool);
-        semLockBool = nullptr;
+        queueEvents = xQueueCreate(5, sizeof(WIFI_Event)); // Initialize the queue that holds Wifi events -- element is of size WIFI_Event
+        ESP_GOTO_ON_FALSE(queueEvents, ESP_ERR_NO_MEM, wifi_createQueues_err, TAG, "IDF did not allocate memory for the events queue.");
     }
 
-    if (semLockUint8 != nullptr)
+    if (queueCmdRequests == nullptr)
     {
-        vSemaphoreDelete(semLockUint8);
-        semLockUint8 = nullptr;
+        queueCmdRequests = xQueueCreate(1, sizeof(WIFI_CmdRequest *)); // Initialize our Incoming Command Request Queue -- element is of size pointer
+        ESP_GOTO_ON_FALSE(queueCmdRequests, ESP_ERR_NO_MEM, wifi_createQueues_err, TAG, "IDF did not allocate memory for the command request queue.");
     }
 
-    if (semLockUint32 != nullptr)
+    if (ptrWifiCmdRequest == nullptr)
     {
-        vSemaphoreDelete(semLockUint32);
-        semLockUint32 = nullptr;
+        ptrWifiCmdRequest = new WIFI_CmdRequest();
+        ESP_GOTO_ON_FALSE(ptrWifiCmdRequest, ESP_ERR_NO_MEM, wifi_createQueues_err, TAG, "IDF did not allocate memory for the ptrWifiCmdRequest structure.");
+    }
+    return;
+
+wifi_createQueues_err:
+    routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): error: " + esp_err_to_name(ret));
+}
+
+void Wifi::destroyQueues()
+{
+    if (queueEvents != nullptr)
+    {
+        vQueueDelete(queueEvents);
+        queueEvents = nullptr;
+    }
+
+    if (queueCmdRequests != nullptr)
+    {
+        vQueueDelete(queueCmdRequests);
+        queueCmdRequests = nullptr;
+    }
+
+    if (ptrWifiCmdRequest != nullptr)
+    {
+        delete ptrWifiCmdRequest;
+        ptrWifiCmdRequest = nullptr;
     }
 }
 

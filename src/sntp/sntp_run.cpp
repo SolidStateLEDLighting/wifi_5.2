@@ -1,10 +1,8 @@
 #include "sntp/sntp_.hpp"
 #include "system_.hpp"
 
-#include "esp_check.h"
-
 //
-// NOTE: The run function is not called by a local Task so it behaves a bit differently.  We enter here at a fairly slow cadence.
+// NOTE: The run function is not called by a local Task so it behaves a bit differently.  We enter here from the Wifi object.
 //       Upon entering, we process any events that may have occurred first.   Then we (re)enter any state processing that may be in progress.
 //       This appears to be the right solution for an instance which has no task and is owned ('has as' relationship) by a parent object.
 //
@@ -12,15 +10,15 @@ void SNTP::run(void)
 {
     esp_err_t ret = ESP_OK;
 
-    /* Event Processing */
-    runEvents();
+    if (uxQueueMessagesWaiting(queueEvents)) // We always give top priorty to handling events
+        runEvents();
+
+    // NOTE:  There is no RTOS processing done here.  NO Task Notification, NO Command Queue.  This is because the Wifi parent can control all the variables without
+    //        Marshalling between tasks - as SNTP has NO task.
 
     switch (sntpOP)
     {
-        // This particular object is simple enough that it doesn't require an initialization process which is typically located here.  Construction was enough to initialize.
-
-        // NOTE:  There is no RTOS processing done at all here.  NO Task Notification, NO Command Queue.  This is because the Wifi parent can control all the variables without
-        //        Marshalling between tasks - as SNTP has NO task.
+        // This particular object is simple enough that it doesn't require an initialization process which is typically located here.  Construction was enough to initialize it.
 
     case SNTP_OP::Connect:
     {
@@ -112,8 +110,9 @@ void SNTP::run(void)
 
             ESP_GOTO_ON_ERROR(esp_netif_sntp_init(&config), sntp_Init_err, TAG, "esp_netif_sntp_init(&config) failed");
 
-            waitingForSNTPNotification = true;
-            sntpSyncEventCountDown = syncEventTimeOutSecs; // Start the Wait counter
+            sntpStartTicks = xTaskGetTickCount();
+            waitingOnEpochTimeSec = 0;
+
             connStep = SNTP_CONN::Waiting_For_Response;
 
             if (showSNTP & _showSNTPConnSteps)
@@ -128,34 +127,38 @@ void SNTP::run(void)
 
         case SNTP_CONN::Waiting_For_Response:
         {
-            if (timeValid) // Did our time synchronization arrive?  If so, then we are done waitingForSNTPNotification.
+            if (timeValid) // Did our time synchronization arrive?
             {
                 if (showSNTP & _showSNTPConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): SNTP_CONN::Waiting_For_Response: EPOCH TIME RECEIVED");
-                waitingForSNTPNotification = false; // Reset our timeout variables.
-                waitSecsCount = 0;                  //
-                connStep = SNTP_CONN::Idle;         // Our SNTP process is over, go to an idle state.
-                saveVariablesToNVS();               // There is a possibility that SNTP server index changed during that process -- call on save.
-                break;
+
+                saveVariablesToNVS();       // There is a possibility that SNTP server index changed during our process -- call on save.
+                connStep = SNTP_CONN::Idle; // Our SNTP process is over, go to an idle state.
             }
-
-            if (sntpSyncEventCountDown < 4)
+            else // We have not received Epoch time yet, so count time here.  If we time out waiting, then change to another SNTP server.
             {
-                if (showSNTP & _showSNTPConnSteps)
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Waiting response from " + serverName + ": " + std::to_string(sntpSyncEventCountDown) + " Secs remain before server rotation...");
-            }
+                waitingOnEpochTimeSec = (int)(pdTICKS_TO_MS(xTaskGetTickCount() - sntpStartTicks) / 1000);
 
-            if (--sntpSyncEventCountDown < 1)
-            {
-                serverIndex++;
-                if (serverIndex > 4) // 4 servers to rotate through
-                    serverIndex = 1;
+                // ESP_LOGW(TAG, "waitingOnEpochTimeSec %d sec", waitingOnEpochTimeSec); // Debug
 
-                if (showSNTP & _showSNTPConnSteps)
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Changing server to " + std::to_string(serverIndex));
+                if ((waitingOnEpochTimeSecMax - waitingOnEpochTimeSec) < 4) // Show a count down just before the time out.
+                {
+                    if (showSNTP & _showSNTPConnSteps)
+                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Waiting response from " + serverName + ": " + std::to_string(waitingOnEpochTimeSecMax - waitingOnEpochTimeSec) + " Secs remain before server rotation...");
+                }
 
-                connStep = SNTP_CONN::Configure;
-                break;
+                if (waitingOnEpochTimeSec > waitingOnEpochTimeSecMax)
+                {
+                    serverIndex++;
+                    if (serverIndex > 4) // 4 servers to rotate through
+                        serverIndex = 1;
+
+                    if (showSNTP & _showSNTPConnSteps)
+                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Changing server to " + std::to_string(serverIndex));
+
+                    connStep = SNTP_CONN::Configure;
+                    break;
+                }
             }
             break;
         }
@@ -187,7 +190,7 @@ void SNTP::run(void)
         break;
     }
     }
-    // Implicitly return to the parent object until the next run() call.
+    // We return to the parent object until the next run() call.
 }
 
 //
@@ -196,26 +199,31 @@ void SNTP::run(void)
 //
 void SNTP::runEvents()
 {
-    // This particular object has only one possible event, so our structure here is simplistic.
-    if (lockGetUint8(&sntpEvents) & _sntpTimeUpdated) // We just received a time sync notification.  Mark the time valid and print out the time.
+    SNTP_Event evt;
+
+    while (xQueueReceive(queueEvents, &evt, 0))
     {
         if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Printing Time...");
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): evt.blnTimeArrived is " + std::to_string(evt.blnTimeArrived));
 
-        timeValid = true; // Mark SNTP Time valid.  This will declare our System Time value and stop any waiting processes.
+        if (evt.blnTimeArrived == true)
+        {
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Printing Time...");
 
-        lockAndUint8(&sntpEvents, ~_sntpTimeUpdated); // Clear the flag
+            timeValid = true; // Mark SNTP Time valid.  This will declare our System Time value and stop any waiting processes.
 
-        time_t currentTime;
-        time(&currentTime); // Get the current system time.
+            time_t currentTime;
+            time(&currentTime); // Get the current system time.
 
-        struct tm currentTime_info;
-        localtime_r(&currentTime, &currentTime_info); // Convert it to local time representation.
+            struct tm currentTime_info;
+            localtime_r(&currentTime, &currentTime_info); // Convert it to local time representation.
 
-        char strftimeBuf[64];
-        strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
+            char strftimeBuf[64];
+            strftime(strftimeBuf, sizeof(currentTime_info), "%c", &currentTime_info);
 
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
+            if (show & _showEvents)
+                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Notification of a time synchronization event.  " + std::string(strftimeBuf));
+        }
     }
 }

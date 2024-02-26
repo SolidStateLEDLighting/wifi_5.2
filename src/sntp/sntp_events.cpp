@@ -1,8 +1,6 @@
 #include "sntp/sntp_.hpp"
 #include "system_.hpp" // Class structure and variables
 
-#include "esp_check.h"
-
 extern SNTP *ptrSNTPInternal;
 
 /* Event Callback Functions - SNTP */
@@ -17,12 +15,15 @@ void SNTP::eventHandlerSNTPMarshaller(struct timeval *tv)
 //
 void SNTP::eventHandlerSNTP(struct timeval *tv)
 {
+    SNTP_Event evt;
+    evt.blnTimeArrived = true;
+
     if (show & _showEvents)
         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Called by the task named: " + std::string(pcTaskGetName(NULL)));
 
     if (show & _showEvents)
-        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): timeval arrived!!");
+        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): evt.blnTimeArrived is " + std::to_string(evt.blnTimeArrived));
 
-    // The TCP/IP stack's task (tiT) will arrive here to drive this handler.  Be sure to implement locking for any shared variables.
-    lockOrUint8(&sntpEvents, _sntpTimeUpdated); // Register our event in the sntpEvents flag
+    if (xQueueSendToBack(queueEvents, &evt, 0) == pdFALSE)
+        routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): SNTP Event queue over-flowed!");
 }

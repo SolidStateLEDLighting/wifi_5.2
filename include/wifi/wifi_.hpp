@@ -53,6 +53,8 @@ extern "C"
         uint8_t show = 0;
         uint8_t showWifi = 0;
 
+        QueueHandle_t queueEvents = nullptr;
+
         bool haveIPAddress = false;
 
         uint8_t wifiDirectives = 0;
@@ -61,6 +63,8 @@ extern "C"
         void setLogLevels(void);
         void createSemaphores(void);
         void destroySemaphores(void);
+        void createQueues(void);
+        void destroyQueues(void);
 
         uint8_t runStackSizeK = 14; // Default/Minimum stacksize
         TaskHandle_t taskHandleRun = nullptr;
@@ -85,7 +89,6 @@ extern "C"
         void routeLogByValue(LOG_TYPE, std::string);
 
         /* Wifi_NVS */
-        uint8_t saveToNVSDelayCount = 0;
         void restoreVariablesFromNVS(void);
         void saveVariablesToNVS(void);
 
@@ -104,13 +107,8 @@ extern "C"
         bool wifiNoValidTimeTimeOut = false;
         bool autoConnect = true; // Normal state is true unless manually disconnecting
 
-        uint8_t noHostSecsToRestart = 0;     // Seconds count in progress
-        uint8_t noHostSecsToRestartMax = 15; // Seconds to exire
-
-        uint8_t noIPAddressSecToRestart = 0;
+        uint8_t noHostSecsToRestartMax = 15; // Seconds to wait before we restart our connection to the host.
         uint8_t noIPAddressSecToRestartMax = 15;
-
-        uint8_t noValidTimeSecToRestart = 0;
         uint8_t noValidTimeSecToRestartMax = 30; // We allow 1 full rotation through all 4 SNTP servers before resetting connection
 
         QueueHandle_t queueCmdRequests = nullptr; // WIFI <-- ?? (Request Queue is here)
@@ -119,11 +117,9 @@ extern "C"
 
         static void runMarshaller(void *);
         void run(void);
-        void runEvents(uint32_t);
-
-        bool shutDown = false;
-
-        WIFI_OP wifiOP = WIFI_OP::Init;                                 // Object States
+        void runEvents();
+        
+        WIFI_OP wifiOP = WIFI_OP::Idle;                                 // Object States
         WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;          //
         WIFI_INIT wifiInitStep = WIFI_INIT::Finished;                   //
         WIFI_DIRECTIVES wifiDirectivesStep = WIFI_DIRECTIVES::Finished; //
@@ -133,8 +129,5 @@ extern "C"
 
         /* Wifi_Utilities */
         bool allOperationsFinished(void);
-        void lockOrUint32(uint32_t *, uint32_t);
-        void lockAndUint32(uint32_t *, uint32_t);
-        uint32_t lockGetUint32(uint32_t *);
     };
 }

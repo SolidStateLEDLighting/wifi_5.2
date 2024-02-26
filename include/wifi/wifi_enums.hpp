@@ -31,10 +31,16 @@ struct WIFI_CmdRequest
     uint8_t dataLength;        //
 };
 
+struct WIFI_Event
+{
+    const char *event_base;
+    int32_t event_id;
+};
+
 /* Class Operations */
 enum class WIFI_OP : uint8_t
 {
-    Run,
+    Run = 1,
     Shutdown,
     Init,
     Directives,
@@ -58,7 +64,6 @@ enum class WIFI_INIT : uint8_t
 {
     Start,
     Checks,
-    Init_Queues_Commands,
     Set_Variables_From_Config,
     Auto_Connect,
     Finished,

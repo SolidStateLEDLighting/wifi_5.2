@@ -20,13 +20,11 @@ extern "C"
 
         bool timeValid = false;
 
-        bool timeOut = false;                    // Violation value
-        bool waitingForSNTPNotification = false; // Waiting for value
-
-        uint8_t waitSecsCount = 0;    // Seconds count in progress
         uint8_t waitSecsTimeOut = 20; // Seconds to exire
-
         std::string serverName = "";
+
+        uint32_t sntpStartTicks = 0;
+        uint8_t waitingOnEpochTimeSec = 0;
 
         /* SNTP_Run */
         SNTP_OP sntpOP = SNTP_OP::Idle;           // Object States
@@ -53,7 +51,11 @@ extern "C"
         void setShowFlags(void);
         void setLogLevels(void);
         void createSemaphores(void);
+        void createQueues(void);
         void destroySemaphores(void);
+        void destroyQueues(void);
+
+        QueueHandle_t queueEvents = nullptr;
 
         /* Working Variables */
         std::string timeZone = "HKT-8"; // Our default time zone selection
@@ -61,10 +63,7 @@ extern "C"
         esp_sntp_config_t config;
         uint8_t serverIndex = 0;
 
-        /* SNTP_Events */
-        uint8_t sntpEvents = 0;
-        const uint8_t syncEventTimeOutSecs = 7; // We time out in 7 seconds waiting for a SNTP server response
-        uint8_t sntpSyncEventCountDown = 0;
+        const uint8_t waitingOnEpochTimeSecMax = 7; // We time out in 7 seconds waiting for a SNTP server response
 
         static void eventHandlerSNTPMarshaller(struct timeval *);
         void eventHandlerSNTP(struct timeval *);
@@ -77,10 +76,5 @@ extern "C"
         /* SNTP_NVS */
         void restoreVariablesFromNVS(void);
         void saveVariablesToNVS(void);
-
-        /* SNTP_Utilities */
-        void lockOrUint8(uint8_t *, uint8_t);
-        void lockAndUint8(uint8_t *, uint8_t);
-        uint8_t lockGetUint8(uint8_t *); // NOTE: Don't need a lockSet() function
     };
 }

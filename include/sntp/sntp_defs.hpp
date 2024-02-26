@@ -3,6 +3,3 @@
 
 /* showSNTP */
 #define _showSNTPConnSteps 0x01 // LSB
-
-/* sntpEvents */
-#define _sntpTimeUpdated 0x01

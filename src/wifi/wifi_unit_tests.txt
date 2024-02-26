@@ -45,7 +45,7 @@ case 0: // Destroying wifi
           taskHandleWIFIRun = nullptr;       // Clears the wifi handles
           queHandleWIFICmdRequest = nullptr; //
 
-          // Note: The semWifiEntry semaphore is already destroyed.
+          // Note: The semWifiEntry semaphore is already destroyed - so don't "Give" it or a run time error will occur
       }
     }
     break;

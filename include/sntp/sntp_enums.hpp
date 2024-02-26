@@ -2,6 +2,11 @@
 
 #include <stdint.h> // Standard libraries
 
+struct SNTP_Event
+{
+    bool blnTimeArrived;
+};
+
 /* Class Operations */
 enum class SNTP_OP : uint8_t
 {

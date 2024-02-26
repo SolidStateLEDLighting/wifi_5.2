@@ -16,100 +16,104 @@ void Wifi::runMarshaller(void *arg)
 void Wifi::run(void)
 {
     esp_err_t ret = ESP_OK;
-    std::string serverName = "";
 
-    uint8_t waitingOnHostConnSec = 0;  // Single second counters
-    uint8_t waitingOnIPAddressSec = 0; //
-    uint8_t waitingOnValidTimeSec = 0; //
-
+    bool idleCadence = true;
+    bool shutDown = false;
     bool cmdRunDirectives = false;
 
-    uint8_t runDelayForSNTP = 4;
+    uint32_t wifiConnStartTicks = 0;
+    uint8_t waitingOnHostConnSec = 0;    // Single second counters
+    uint8_t waitingOnIPAddressSec = 0;   //
+    uint8_t noValidTimeSecToRestart = 0; //
 
     WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
 
     while (true)
     {
-        switch (wifiOP)
-        {
-        case WIFI_OP::Run: // We would like to achieve about a 4Hz entry cadence in the Run state.
-        {
-            /* Event Processing */
-            runEvents(lockGetUint32(&wifiEvents));
+        if (uxQueueMessagesWaiting(queueEvents)) // We always give top priorty to handling events
+            runEvents();
+        //
+        // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here
+        // is that this is our yeild time back to the scheduler.  We don't need to perform another yeild in an other place
+        // to cooperatively yeild to the OS.  If we have things to do, we don't add any delay time, but if all processes
+        // are finished, then we will add 250 delay time in waiting for a Task Notification.  This permits us to reduce 
+        // power consumption when we are not busy without sacrificing latentcy when we are busy.
+        //
+        if (idleCadence)
+            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250))); // 4Hz (relaxed scheduling)
+        else
+            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, 0)); // Reduced latency scheduling
 
-            /*  Service all Task Notifications */
-            // Task Notifications should be used for notifications or commands which need no input and return no data.
-            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(150)));
-
-            if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Do I have a notify value?
+        if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Handle Task Notifications
+        {
+            // Task Notifications should be used for notifications (NFY_NOTIFICATION) or commands (CMD_COMMAND) which need no input and return no data.
+            switch (wifiTaskNotifyValue)
             {
-                switch (wifiTaskNotifyValue)
-                {
-                case WIFI_NOTIFY::CMD_CLEAR_PRI_HOST: // Some of these notifications set Directive bits - a follow up CMD_RUN_DIRECTIVES task notification starts the action.
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CLEAR_PRI_HOST");
-                    wifiDirectives |= _wifiClearPriHostInfo;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_DISC_HOST:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_DISC_HOST");
-                    wifiDirectives |= _wifiDisconnectHost;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_CONN_PRI_HOST:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CONN_PRI_HOST");
-                    wifiDirectives |= _wifiConnectPriHost;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_RUN_DIRECTIVES:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_RUN_DIRECTIVES");
-                    cmdRunDirectives = true;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_SET_AUTOCONNECT:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SET_AUTOCONNECT");
-
-                    autoConnect = true;
-                    saveToNVSDelayCount = 8;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT");
-
-                    autoConnect = false;
-                    saveToNVSDelayCount = 8;
-                    break;
-                }
-
-                case WIFI_NOTIFY::CMD_SHUT_DOWN:
-                {
-                    if (show & _showRun)
-                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SHUT_DOWN");
-                    shutDown = true;
-                    break;
-                }
-                }
+            case WIFI_NOTIFY::CMD_CLEAR_PRI_HOST: // Some of these notifications set Directive bits - a follow up CMD_RUN_DIRECTIVES task notification starts the action.
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CLEAR_PRI_HOST");
+                wifiDirectives |= _wifiClearPriHostInfo;
+                break;
             }
 
-            /*  Service all Queued Incoming Commands */
-            // Queue based commands should be used for commands which may provide input and perhaps return data.
-            if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(100))) // We can wait here a while without a negative impact to any other Run operation.
+            case WIFI_NOTIFY::CMD_DISC_HOST:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_DISC_HOST");
+                wifiDirectives |= _wifiDisconnectHost;
+                break;
+            }
+
+            case WIFI_NOTIFY::CMD_CONN_PRI_HOST:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CONN_PRI_HOST");
+                wifiDirectives |= _wifiConnectPriHost;
+                break;
+            }
+
+            case WIFI_NOTIFY::CMD_RUN_DIRECTIVES:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_RUN_DIRECTIVES");
+                cmdRunDirectives = true;
+                break;
+            }
+
+            case WIFI_NOTIFY::CMD_SET_AUTOCONNECT:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SET_AUTOCONNECT");
+
+                autoConnect = true;
+                saveVariablesToNVS();
+                break;
+            }
+
+            case WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_CLEAR_AUTOCONNECT");
+
+                autoConnect = false;
+                saveVariablesToNVS();
+                break;
+            }
+
+            case WIFI_NOTIFY::CMD_SHUT_DOWN:
+            {
+                if (show & _showRun)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SHUT_DOWN");
+                shutDown = true;
+                break;
+            }
+            }
+        }
+        else // If we don't have a Notification, then look for any Command Requests
+        {
+            // Queue based commands should be used for commands which provide input and optioanlly return data.   Use a notification if no data is passed.
+            if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, 0)) // Do I have a command request in the queue?
             {
                 if (ptrWifiCmdRequest != nullptr)
                 {
@@ -158,11 +162,12 @@ void Wifi::run(void)
                 }
                 xQueueReceive(queueCmdRequests, (void *)&ptrWifiCmdRequest, pdMS_TO_TICKS(0)); // Remove the item from the queue
             }
+        }
 
-            //
-            // State Changes and Pending Actions
-            //
-
+        switch (wifiOP)
+        {
+        case WIFI_OP::Run:
+        {
             if (shutDown) // Don't reset the flag here...
             {
                 wifiShdnStep = WIFI_SHUTDOWN::Start;
@@ -181,118 +186,15 @@ void Wifi::run(void)
                 }
             }
 
-            /* Connecting to Host on delay*/
-            if (waitingOnHostConnSec > 0) // 1 second entry here to connect to Host.  If timeout, we disconnect/reconnect
-            {
-                if (--waitingOnHostConnSec < 1)
-                {
-                    waitingOnHostConnSec = 5; // We reset the count here early because any break statement can exit our local scope.
-
-                    if (++noHostSecsToRestart > noHostSecsToRestartMax) // Timeout waiting for connection to a host
-                    {
-                        waitingOnHostConnSec = 0; // stop this second counter
-                        noHostSecsToRestart = 0;  //
-                        wifiHostTimeOut = true;   // We have a timeout violation
-
-                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
-                        wifiOP = WIFI_OP::Disconnect;
-                        break;
-                    }
-
-                    if (noHostSecsToRestart > 10) // Start to show warnings of a restart after 10 seconds waiting
-                    {
-                        if (show & _showRun)
-                            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noHostSecsToRestart Seconds " + std::to_string(noHostSecsToRestart) + "/" + std::to_string(noHostSecsToRestartMax) + " before restart.");
-                    }
-
-                    wifiOP = WIFI_OP::Connect; // Return to this operation
-                    break;
-                }
-            }
-
-            /* Waiting on IP Addres */
-            if (waitingOnIPAddressSec > 0) // 1 second entry here to see if we have an IP Address.  If timeout, we disconnect/reconnect
-            {
-                if (--waitingOnIPAddressSec < 1)
-                {
-                    waitingOnIPAddressSec = 5;
-
-                    if (++noIPAddressSecToRestart > noIPAddressSecToRestartMax)
-                    {
-                        waitingOnIPAddressSec = 0;   // stop this second counter
-                        noIPAddressSecToRestart = 0; //
-                        wifiIPAddressTimeOut = true; // We have a timeout violation
-
-                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
-                        wifiOP = WIFI_OP::Disconnect;
-                        break;
-                    }
-
-                    if (noIPAddressSecToRestart > 10) // Start to show warnings of a restart after 10 seconds waiting
-                    {
-                        if (show & _showRun)
-                            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noIPAddressSecToRestart Seconds " + std::to_string(noIPAddressSecToRestart) + "/" + std::to_string(noIPAddressSecToRestartMax) + " before restart.");
-                    }
-
-                    wifiOP = WIFI_OP::Connect; // Return to this operation
-                    break;
-                }
-            }
-
-            /* Obtaining Epoch Time */
-            if (waitingOnValidTimeSec) // 1 second entry here to cofirm receipt of Epoch Time.  If timeout, we disconnect/reconnect
-            {
-                if (--waitingOnValidTimeSec < 1)
-                {
-                    waitingOnValidTimeSec = 5;
-
-                    if (++noValidTimeSecToRestart > noValidTimeSecToRestartMax)
-                    {
-                        waitingOnValidTimeSec = 0;     // stop this second counter
-                        noValidTimeSecToRestart = 0;   //
-                        wifiNoValidTimeTimeOut = true; // We have a timeout violation
-
-                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
-                        wifiOP = WIFI_OP::Disconnect;
-                        break;
-                    }
-
-                    if (noValidTimeSecToRestart > 20) // Start to show warnings of a restart after 20 seconds waiting
-                    {
-                        if (show & _showRun)
-                            routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): noValidTimeSecToRestart Seconds " + std::to_string(noValidTimeSecToRestart) + "/" + std::to_string(noValidTimeSecToRestartMax) + " before restart.");
-                    }
-
-                    wifiOP = WIFI_OP::Connect; // Return to this operation
-                    break;
-                }
-            }
-
-            /* saving data to NVS on delay */
-            if (saveToNVSDelayCount > 0) // Counts of 4 equal about 1 second.
-            {
-                if (--saveToNVSDelayCount < 1)
-                    saveVariablesToNVS();
-            }
-
-            /* Service sntp if it is running. */
-            if (runDelayForSNTP > 0)
-            {
-                if (--runDelayForSNTP < 1)
-                {
-                    if (sntp != nullptr)
-                        sntp->run();
-                    runDelayForSNTP = 4; // We are calling the sntp run function around 1Hz
-                }
-            }
-
+            sntp->run(); // We still need to enter here occasionally so the SNTP can process any server updates.
             break;
         }
 
-            // Positionally, it is important for Shutdown to be serviced right after it is called for.  We don't want other possible operations
-            // becoming active unexepectedly.  This is somewhat important.
         case WIFI_OP::Shutdown:
         {
+            // Positionally, it is important for Shutdown to be serviced right after it is called for.  We don't want other possible operations
+            // becoming active unexepectedly.  This is somewhat important.
+            //
             // A shutdown is a complete undoing of all items that were established or created with our run thread.
             // If we have Directives, cancel them.  If we are connected then disconnect.  If we created resources, then dispose of them here.
             // NVS actions are also canceled.  Shutdown is a rude way to exit immediately.
@@ -303,6 +205,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Start");
 
+                idleCadence = false; // Don't permit scheduler delays in Run processing.
                 wifiShdnStep = WIFI_SHUTDOWN::Cancel_Directives;
                 [[fallthrough]];
             }
@@ -348,7 +251,6 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Final_Items - Step " + std::to_string((int)WIFI_SHUTDOWN::Final_Items));
 
                 // Note: Allow the destructor to play its part.  Don't touch any resources which are destoryed inside the destructor.
-
                 wifiShdnStep = WIFI_SHUTDOWN::Finished;
                 break;
             }
@@ -359,6 +261,7 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Finished");
                 // This exits the run function. (notice how the compiler doesn't complain about a missing break statement)
                 // In the runMarshaller, the task is deleted and the task handler set to nullptr.
+                idleCadence = true; // Return to relaxed scheduling.
                 return;
             }
             }
@@ -401,20 +304,8 @@ void Wifi::run(void)
                     break;
                 }
 
-                wifiInitStep = WIFI_INIT::Init_Queues_Commands;
-                [[fallthrough]];
-            }
-
-            case WIFI_INIT::Init_Queues_Commands:
-            {
-                if (show & _showInit)
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Init_Queues_Commands - Step " + std::to_string((int)WIFI_INIT::Init_Queues_Commands));
-
-                queueCmdRequests = xQueueCreate(1, sizeof(WIFI_CmdRequest *)); // Initialize our Incoming Command Request Queue
-                ptrWifiCmdRequest = new WIFI_CmdRequest();
-
                 wifiInitStep = WIFI_INIT::Set_Variables_From_Config;
-                break;
+                [[fallthrough]];
             }
 
             case WIFI_INIT::Set_Variables_From_Config:
@@ -556,7 +447,7 @@ void Wifi::run(void)
                     if (autoConnect) // If true, set to false because we are explicitly disconnecting and we don't want the system to reconnect.
                     {
                         autoConnect = false;
-                        saveToNVSDelayCount = 8;
+                        saveVariablesToNVS();
                     }
 
                     wifiDiscStep = WIFI_DISC::Start; // Start the disconnection process
@@ -577,7 +468,7 @@ void Wifi::run(void)
                     if (!autoConnect) // If false -- set autoConnect to true
                     {
                         autoConnect = true; // Always set autoConnect UNLESS you manually disconnect...
-                        saveToNVSDelayCount = 8;
+                        saveVariablesToNVS();
                     }
 
                     wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
@@ -627,6 +518,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Start");
 
+                idleCadence = false; // Don't permit scheduler delays in Run processing.
                 wifiConnStep = WIFI_CONN::Create_Netif_Objects;
                 [[fallthrough]];
             }
@@ -792,12 +684,14 @@ void Wifi::run(void)
 
                 ESP_GOTO_ON_ERROR(esp_wifi_start(), wifi_Wifi_Start_err, TAG, "WIFI_CONN::Wifi_Start esp_wifi_start() failed");
 
-                noHostSecsToRestart = 0; // Zeroing out the time out counter.
+                wifiHostTimeOut = false;                  // Reset all the flags and start the timer algorithm.
+                wifiIPAddressTimeOut = false;             //
+                wifiNoValidTimeTimeOut = false;           //
+                wifiConnStartTicks = xTaskGetTickCount(); //
 
                 if (showWifi & _showWifiConnSteps) // Announce our intent to Wait To Connect before we start the wait.  This reduces unneeded messaging in that wait state.
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_To_Connect - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_To_Connect));
 
-                waitingOnHostConnSec = 5; // Start the second timer
                 wifiConnStep = WIFI_CONN::Wifi_Waiting_To_Connect;
                 break;
 
@@ -811,19 +705,30 @@ void Wifi::run(void)
             {
                 if (wifiConnState == WIFI_CONN_STATE::WIFI_CONNECTED_STA)
                 {
-                    waitingOnHostConnSec = 0; // Stops the second counter
-                    noHostSecsToRestart = 0;  // Zeroing out the time-out counter.
-                    wifiHostTimeOut = false;  // Done looking for full STA Connection which includes receiving an IP address.
+                    wifiHostTimeOut = false;                  // Done looking for full STA Connection which includes receiving an IP address.
+                    wifiConnStartTicks = xTaskGetTickCount(); // Restarting the timer to look for IP Address
 
                     if (showWifi & _showWifiConnSteps) // Announce our intent to Wait For IP Addres before we start the wait.  This reduces unneeded messaging in that wait state.
                         routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Waiting_For_IP_Address - Step " + std::to_string((int)WIFI_CONN::Wifi_Waiting_For_IP_Address));
 
                     wifiConnStep = WIFI_CONN::Wifi_Waiting_For_IP_Address;
-                    waitingOnIPAddressSec = 5; // Move to the next second timer
                 }
-                else
+                else // We have not connected yet, so count time here.  If we time out waiting, then disconnect so the system can connect again.
                 {
-                    wifiOP = WIFI_OP::Run; // If we don't have our connection yet, then allow the Run state to calculate the Timeout for this waiting step.
+                    waitingOnHostConnSec = (int)(pdTICKS_TO_MS(xTaskGetTickCount() - wifiConnStartTicks) / 1000);
+
+                    // ESP_LOGW(TAG, "waitingOnHostConnSec %d sec", waitingOnHostConnSec); // Debug
+
+                    if ((noHostSecsToRestartMax - waitingOnHostConnSec) < 4) // Show a count down just before the time out.
+                        ESP_LOGW(TAG, "Not Connected to Host, will restart in %d", noHostSecsToRestartMax - waitingOnHostConnSec);
+
+                    if (waitingOnHostConnSec > noHostSecsToRestartMax)
+                    {
+                        wifiHostTimeOut = true;
+                        wifiDiscStep = WIFI_DISC::Start; // Call for a disconnect process
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
                 }
                 break;
             }
@@ -832,17 +737,28 @@ void Wifi::run(void)
             {
                 if (haveIPAddress)
                 {
-                    waitingOnIPAddressSec = 0;    // Stops the second counter
-                    noIPAddressSecToRestart = 0;  // Resets the time-out.
-                    wifiIPAddressTimeOut = false; //
+                    wifiIPAddressTimeOut = false;             // Reset all the flags and start the timer algorithm.
+                    wifiConnStartTicks = xTaskGetTickCount(); // Restarting timer to look for Epoch time.
 
                     wifiConnStep = WIFI_CONN::Wifi_SNTP_Connect;
-                    waitingOnValidTimeSec = 5;
                     break;
                 }
-                else
+                else // We have not received an IP Address yet, so count time here.  If we time out waiting, then disconnect so the system can connect again.
                 {
-                    wifiOP = WIFI_OP::Run; // If we don't have our IP Address yet, then allow the Run state to calculate the Timeout for this waiting step.
+                    waitingOnIPAddressSec = (int)(pdTICKS_TO_MS(xTaskGetTickCount() - wifiConnStartTicks) / 1000);
+
+                    // ESP_LOGW(TAG, "waitingOnIPAddressSec %d sec", waitingOnIPAddressSec); // Debug
+
+                    if ((noIPAddressSecToRestartMax - waitingOnIPAddressSec) < 4) // Show a count down just before the time out.
+                        ESP_LOGW(TAG, "Don't have an IP address, will restart in %d", noIPAddressSecToRestartMax - waitingOnIPAddressSec);
+
+                    if (waitingOnIPAddressSec > noIPAddressSecToRestartMax)
+                    {
+                        wifiIPAddressTimeOut = true;
+                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
                 }
                 break;
             }
@@ -867,14 +783,27 @@ void Wifi::run(void)
             {
                 if (sntp->timeValid)
                 {
-                    waitingOnValidTimeSec = 0;          // Stops the second counter
-                    wifiNoValidTimeTimeOut = false;     //
-                    wifiConnStep = WIFI_CONN::Finished; //
+                    wifiNoValidTimeTimeOut = false;
+                    wifiConnStep = WIFI_CONN::Finished;
                 }
-                else
+                else // We have not received Epoch time yet, so count seconds here.  If we time out waiting, then disconnect so the system can connect again.
                 {
-                    sntp->run(); // Not valid yet, make a another pass through SNTP.
-                    wifiOP = WIFI_OP::Run;
+                    noValidTimeSecToRestart = (int)(pdTICKS_TO_MS(xTaskGetTickCount() - wifiConnStartTicks) / 1000);
+
+                    // ESP_LOGW(TAG, "noValidTimeSecToRestart %d sec", noValidTimeSecToRestart); // Debug
+
+                    if ((noValidTimeSecToRestartMax - noValidTimeSecToRestart) < 4) // Show a count down just before the time out.
+                        ESP_LOGW(TAG, "Did not receive Epoch time, will restart in %d", noValidTimeSecToRestartMax - noValidTimeSecToRestart);
+
+                    if (noValidTimeSecToRestart > noValidTimeSecToRestartMax)
+                    {
+                        wifiNoValidTimeTimeOut = true;
+                        wifiDiscStep = WIFI_DISC::Start; // Must always disconnect before connecting again.
+                        wifiOP = WIFI_OP::Disconnect;
+                        break;
+                    }
+
+                    sntp->run(); // Make a another pass through SNTP for processing.
                 }
                 break;
             }
@@ -887,6 +816,7 @@ void Wifi::run(void)
                 while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTED), eSetValueWithoutOverwrite))
                     vTaskDelay(pdMS_TO_TICKS(50));
 
+                idleCadence = true; // Return to relaxed scheduling.
                 wifiOP = WIFI_OP::Directives;
                 break;
             }
@@ -910,6 +840,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Start");
 
+                idleCadence = false; // Don't permit scheduler delays in Run processing.
                 wifiDiscStep = WIFI_DISC::Cancel_Connect;
                 [[fallthrough]];
             }
@@ -925,7 +856,7 @@ void Wifi::run(void)
                 {
                     //
                     // If we call for a Disconnect in the middle of a Connection process, we need to reverse the process
-                    // starting at just the right step.
+                    // starting at just the right step so we can be sure to deallocate resources.
                     //
                     if (wifiConnStep >= WIFI_CONN::Wifi_Waiting_SNTP_Valid_Time)
                         wifiDiscStep = WIFI_DISC::Deinitialize_SNTP;
@@ -939,18 +870,6 @@ void Wifi::run(void)
                         wifiDiscStep = WIFI_DISC::Wifi_Deinit;
                     else if (wifiConnStep >= WIFI_CONN::Create_Netif_Objects)
                         wifiDiscStep = WIFI_DISC::Destroy_Netif_Objects;
-
-                    waitingOnHostConnSec = 0; // Reset the connection timers and flags
-                    noHostSecsToRestart = 0;
-                    wifiHostTimeOut = false;
-
-                    waitingOnIPAddressSec = 0;
-                    noIPAddressSecToRestart = 0;
-                    wifiIPAddressTimeOut = false;
-
-                    waitingOnValidTimeSec = 0;
-                    noValidTimeSecToRestart = 0;
-                    wifiNoValidTimeTimeOut = false;
 
                     wifiConnStep = WIFI_CONN::Finished; // Make sure the the connection process is canceled.
                 }
@@ -1083,6 +1002,8 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Finished");
 
+                idleCadence = true; // Return to relaxed scheduling.
+
                 // This is perhaps a secondary call back to the System to annouce a disconnection.
                 while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
                     vTaskDelay(pdMS_TO_TICKS(50));
@@ -1137,174 +1058,222 @@ void Wifi::run(void)
 
         case WIFI_OP::Idle:
         {
+            idleCadence = true; // Return to relaxed scheduling.
             vTaskDelay(pdMS_TO_TICKS(5000));
             break;
         }
         }
-        taskYIELD();
     }
 }
 
 //
-// This is where we execute event handler actions.  Removing all this activity from the event handlers eliminates task contention
-// over variables and the event task can get back quickly to other more important event processing activities.
+// This is where we execute event handler actions.  Removing all this activity from the event handler eliminates task contention
+// over variables and the system event task can get back quickly to other more important event processing activities.
 //
-void Wifi::runEvents(uint32_t event)
+void Wifi::runEvents()
 {
-    if (!event) // If there are no pending events to process, then return immediately.
-        return;
-
     esp_err_t ret = ESP_OK;
+    WIFI_Event evt;
 
-    if (event & _wifiEventScanDone) // Handle only one event during any run loop
+    while (xQueueReceive(queueEvents, &evt, 0)) // Process all events in the queue
     {
         if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventScanDone");
-        lockAndUint32(&wifiEvents, ~_wifiEventScanDone); // Clear the flag
-    }
-    else if (event & _wifiEventSTAStart)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAStart");
-        lockAndUint32(&wifiEvents, ~_wifiEventSTAStart); // Clear the flag
+            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): evt.event_base is " + std::string(evt.event_base) + " evt.event_id is " + std::to_string(evt.event_id));
 
-        if (wifiConnState != WIFI_CONN_STATE::WIFI_READY_TO_CONNECT)
+        if (evt.event_base == WIFI_EVENT)
         {
-            wifiConnState = WIFI_CONN_STATE::WIFI_READY_TO_CONNECT;
+            switch (evt.event_id)
+            {
+            case WIFI_EVENT_SCAN_DONE:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_SCAN_DONE");
+                break;
+            }
 
-            if (show & _showEvents)
-                routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifiConnState = WIFI_READY_TO_CONNECT");
+            case WIFI_EVENT_STA_START:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_START - wifi connect");
+
+                if (wifiConnState != WIFI_CONN_STATE::WIFI_READY_TO_CONNECT)
+                {
+                    wifiConnState = WIFI_CONN_STATE::WIFI_READY_TO_CONNECT;
+
+                    if (show & _showEvents)
+                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): wifiConnState = WIFI_READY_TO_CONNECT");
+                }
+
+                sntp->timeValid = false; // Everytime we start the STA Connection process, the SNTP time must be declared invalid.
+
+                ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed");
+
+                wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
+
+                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+            }
+
+            case WIFI_EVENT_STA_STOP:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_STOP");
+
+                sntp->timeValid = false; // When we stop the sta connection, sntp time must be invalidated.
+
+                if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED)
+                    wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTING_STA; // Only run these items one time at a Disconnection.
+
+                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTING), eSetValueWithoutOverwrite))
+                    vTaskDelay(pdMS_TO_TICKS(50));
+                break;
+            }
+
+            case WIFI_EVENT_STA_CONNECTED:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_CONNECTED - IP address will follow...");
+                //
+                // We have connected to the Host.   This doesn't mean that we have an IP or access to the Internet yet,
+                // but we can confirm the ssid and password are valid for the targeted host.
+                //
+                wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTED_STA;
+                break;
+            }
+
+            case WIFI_EVENT_STA_DISCONNECTED:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_DISCONNECTED");
+
+                sntp->timeValid = false; // When we disconnect, sntp time must be invalidated.
+
+                if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED) // The first time we disconnect, set the state and send any required notifications.
+                    wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED;
+
+                while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
+                    vTaskDelay(pdMS_TO_TICKS(50));
+
+                if (autoConnect)
+                {
+                    ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed"); // Try to reconnect (But don't reset our timeout counts)
+                    wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
+
+                    while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
+                        vTaskDelay(pdMS_TO_TICKS(50));
+                }
+                break;
+            }
+
+            case WIFI_EVENT_AP_START:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_START");
+
+                break;
+            }
+
+            case WIFI_EVENT_AP_STOP:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STOP");
+
+                break;
+            }
+
+            case WIFI_EVENT_AP_STACONNECTED:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STACONNECTED");
+
+                break;
+            }
+
+            case WIFI_EVENT_AP_STADISCONNECTED:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_AP_STADISCONNECTED");
+
+                break;
+            }
+
+            case WIFI_EVENT_STA_BEACON_TIMEOUT:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_STA_BEACON_TIMEOUT, Starting to lose a connection...");
+
+                break;
+            }
+
+            case WIFI_EVENT_HOME_CHANNEL_CHANGE:
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_EVENT:WIFI_EVENT_HOME_CHANNEL_CHANGE");
+
+                break;
+            }
+
+            default:
+            {
+                routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "(): WIFI_EVENT:<default> event_id = " + std::to_string(evt.event_id));
+                break;
+            }
+            }
         }
-
-        sntp->timeValid = false; // Everytime we start the STA Connection process, the SNTP time must be declared invalid.
-
-        ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed");
-
-        wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
-
-        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
-            vTaskDelay(pdMS_TO_TICKS(50));
-    }
-    else if (event & _wifiEventSTAStop)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAStop");
-        lockAndUint32(&wifiEvents, ~_wifiEventSTAStop); // Clear the flag
-
-        sntp->timeValid = false; // When we stop the sta connection, sntp time must be invalidated.
-
-        if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED)
-            wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTING_STA; // Only run these items one time at a Disconnection.
-
-        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTING), eSetValueWithoutOverwrite))
-            vTaskDelay(pdMS_TO_TICKS(50));
-    }
-    else if (event & _wifiEventSTAConnected)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTAConnected");
-        lockAndUint32(&wifiEvents, ~_wifiEventSTAConnected); // Clear the flag
-        //
-        // We have connected to the Host.   This doesn't mean that we have an IP or access to the Internet yet,
-        // but we can confirm the ssid and password are valid for the targeted host.
-        //
-        wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTED_STA;
-    }
-    else if (event & _wifiEventSTADisconnected)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSTADisconnected");
-        lockAndUint32(&wifiEvents, ~_wifiEventSTADisconnected); // Clear the flag
-
-        sntp->timeValid = false; // When we disconnect, sntp time must be invalidated.
-
-        if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED) // The first time we disconnect, set the state and send any required notifications.
-            wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED;
-
-        while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
-            vTaskDelay(pdMS_TO_TICKS(50));
-
-        if (autoConnect)
+        else if (evt.event_base == IP_EVENT)
         {
-            ESP_GOTO_ON_ERROR(esp_wifi_connect(), wifi_eventRun_err, TAG, "esp_wifi_connect() failed"); // Try to reconnect (But don't reset our timeout counts)
-            wifiConnState = WIFI_CONN_STATE::WIFI_CONNECTING_STA;
+            switch (evt.event_id)
+            {
+            case IP_EVENT_STA_GOT_IP: // ESP32 station got IP from connected AP
+            {
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP:");
 
-            while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTING), eSetValueWithoutOverwrite))
-                vTaskDelay(pdMS_TO_TICKS(50));
+                esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+                ESP_GOTO_ON_FALSE(netif, ESP_FAIL, wifi_eventRun_err, TAG, "Could not locate the WIFI_STA_DEF netif instance..."); // Effectively, this is an assert without an abort.
+
+                esp_netif_ip_info_t ip_info;
+                ESP_GOTO_ON_ERROR(esp_netif_get_ip_info(netif, &ip_info), wifi_eventRun_err, TAG, "esp_netif_get_ip_info() failed ");
+
+                uint8_t num1 = ((&(ip_info.ip.addr))[0]);
+                uint8_t num2 = ((&(ip_info.ip.addr))[1]);
+                uint8_t num3 = ((&(ip_info.ip.addr))[2]);
+                uint8_t num4 = ((&(ip_info.ip.addr))[3]);
+
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My IP address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+                num1 = ((&(ip_info.gw.addr))[0]);
+                num2 = ((&(ip_info.gw.addr))[1]);
+                num3 = ((&(ip_info.gw.addr))[2]);
+                num4 = ((&(ip_info.gw.addr))[3]);
+
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Gateway address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+                num1 = ((&(ip_info.netmask.addr))[0]);
+                num2 = ((&(ip_info.netmask.addr))[1]);
+                num3 = ((&(ip_info.netmask.addr))[2]);
+                num4 = ((&(ip_info.netmask.addr))[3]);
+
+                if (show & _showEvents)
+                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Netmask is " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
+
+                haveIPAddress = true; // This will stop the wifi waiting process.
+
+                break;
+            }
+
+            default:
+            {
+                routeLogByValue(LOG_TYPE::WARN, std::string(__func__) + "():IP_EVENT:<default> event_id = " + std::to_string(evt.event_id));
+                break;
+            }
+            }
         }
     }
-    else if (event & _wifiEventAPStart)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSAStart");
-        lockAndUint32(&wifiEvents, ~_wifiEventAPStart); // Clear the flag
-    }
-    else if (event & _wifiEventAPStop)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventSAStop");
-        lockAndUint32(&wifiEvents, ~_wifiEventAPStop); // Clear the flag
-    }
-    else if (event & _wifiEventAPConnected)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventAPConnected");
-        lockAndUint32(&wifiEvents, ~_wifiEventAPConnected); // Clear the flag
-    }
-    else if (event & _wifiEventAPDisconnected)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventAPDisconnected");
-        lockAndUint32(&wifiEvents, ~_wifiEventAPDisconnected); // Clear the flag
-    }
-    else if (event & _wifiEventBeaconTimeout)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _wifiEventBeaconTimeout");
-        lockAndUint32(&wifiEvents, ~_wifiEventBeaconTimeout); // Clear the flag
-    }
-    else if (event & _ipEventSTAGotIp)
-    {
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): _ipEventSTAGotIp");
-        lockAndUint32(&wifiEvents, ~_ipEventSTAGotIp); // Clear the flag
 
-        esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
-        ESP_GOTO_ON_FALSE(netif, ESP_FAIL, wifi_eventRun_err, TAG, "Could not locate the WIFI_STA_DEF netif instance..."); // Effectively, this is an assert without an abort.
-
-        esp_netif_ip_info_t ip_info;
-        ESP_GOTO_ON_ERROR(esp_netif_get_ip_info(netif, &ip_info), wifi_eventRun_err, TAG, "esp_netif_get_ip_info() failed ");
-
-        uint8_t num1 = ((&(ip_info.ip.addr))[0]);
-        uint8_t num2 = ((&(ip_info.ip.addr))[1]);
-        uint8_t num3 = ((&(ip_info.ip.addr))[2]);
-        uint8_t num4 = ((&(ip_info.ip.addr))[3]);
-
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My IP address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
-
-        num1 = ((&(ip_info.gw.addr))[0]);
-        num2 = ((&(ip_info.gw.addr))[1]);
-        num3 = ((&(ip_info.gw.addr))[2]);
-        num4 = ((&(ip_info.gw.addr))[3]);
-
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Gateway address " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
-
-        num1 = ((&(ip_info.netmask.addr))[0]);
-        num2 = ((&(ip_info.netmask.addr))[1]);
-        num3 = ((&(ip_info.netmask.addr))[2]);
-        num4 = ((&(ip_info.netmask.addr))[3]);
-
-        if (show & _showEvents)
-            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): IP_EVENT:IP_EVENT_STA_GOT_IP: My Netmask is " + std::to_string(num1) + "." + std::to_string(num2) + "." + std::to_string(num3) + "." + std::to_string(num4));
-
-        haveIPAddress = true; // This will stop the wifi waiting process.
-    }
-    else
-    {
-        routeLogByValue(LOG_TYPE::ERROR, std::string(__func__) + "(): Did not include a run handler for this unknown Wifi Event");
-    }
     return;
 
 wifi_eventRun_err:

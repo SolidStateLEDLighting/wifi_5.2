@@ -29,18 +29,3 @@
 #define _hostSecdActive 0x20
 #define _hostSecdUnused2 0x40
 #define _hostSecdUnused3 0x80
-
-/* wifiEvents */
-#define _wifiEventScanDone 0x00000001
-#define _wifiEventSTAStart 0x00000002
-#define _wifiEventSTAStop 0x00000004
-#define _wifiEventSTAConnected 0x00000008
-
-#define _wifiEventSTADisconnected 0x00000010
-#define _wifiEventAPStart 0x00000020
-#define _wifiEventAPStop 0x00000040
-#define _wifiEventAPConnected 0x00000080
-
-#define _wifiEventAPDisconnected 0x00000100
-#define _wifiEventBeaconTimeout 0x00000200
-#define _ipEventSTAGotIp 0x00000400
