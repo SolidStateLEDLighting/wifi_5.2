@@ -17,12 +17,12 @@ void Wifi::run(void)
 {
     esp_err_t ret = ESP_OK;
 
-    bool idleCadence = true;
+    uint8_t cadenceTimeDelay = 250;
     bool cmdRunDirectives = false;
 
-    uint32_t wifiConnStartTicks = 0;
-    uint8_t waitingOnHostConnSec = 0;    // Single second counters
-    uint8_t waitingOnIPAddressSec = 0;   //
+    uint32_t wifiConnStartTicks = 0;     // Starting point for..
+    uint8_t waitingOnHostConnSec = 0;    //
+    uint8_t waitingOnIPAddressSec = 0;   // Single second counters
     uint8_t noValidTimeSecToRestart = 0; //
 
     WIFI_NOTIFY wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(0);
@@ -32,20 +32,17 @@ void Wifi::run(void)
         if (uxQueueMessagesWaiting(queueEvents)) // We always give top priorty to handling events
             runEvents();
         //
-        // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here
-        // is that this is our yeild time back to the scheduler.  We don't need to perform another yeild in an other place
-        // to cooperatively yeild to the OS.  If we have things to do, we don't add any delay time, but if all processes
-        // are finished, then we will add 250 delay time in waiting for a Task Notification.  This permits us to reduce
-        // power consumption when we are not busy without sacrificing latentcy when we are busy.
+        // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here is that this is our yeild
+        // time back to the scheduler.  We don't need to perform another yeild anywhere else to cooperatively yeild to the OS.
+        // If we have things to do, we maintain cadenceTimeDelay = 0, but if all processes are finished, then we will place 250mSec delay time in
+        // cadenceTimeDelay for a Task Notification wait.  This permits us to reduce power consumption when we are not busy without sacrificing latentcy
+        // when we are busy.  Relaxed schduling with 250mSec equates to about 4Hz run() loop cadence.
         //
-        if (idleCadence)
-            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(250))); // 4Hz (relaxed scheduling)
-        else
-            wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, 0)); // Reduced latency scheduling
+        wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(cadenceTimeDelay)));
 
-        if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Handle Task Notifications
+        if (wifiTaskNotifyValue > static_cast<WIFI_NOTIFY>(0)) // Looking for Task Notifications
         {
-            // Task Notifications should be used for notifications (NFY_NOTIFICATION) or commands (CMD_COMMAND) which need no input and return no data.
+            // Task Notifications should be used for notifications (NFY_NOTIFICATION) or commands (CMD_COMMAND) both of which need no input and return no data.
             switch (wifiTaskNotifyValue)
             {
             case WIFI_NOTIFY::CMD_CLEAR_PRI_HOST: // Some of these notifications set Directive bits - a follow up CMD_RUN_DIRECTIVES task notification starts the action.
@@ -111,9 +108,9 @@ void Wifi::run(void)
             }
             }
         }
-        else // If we don't have a Notification, then look for any Command Requests
+        else // If we don't have a Notification, then look for any Command Requests (thereby handling only one upon each run() loop entry)
         {
-            // Queue based commands should be used for commands which provide input and optioanlly return data.   Use a notification if no data is passed.
+            // Queue based commands should be used for commands which provide input and optioanlly return data.   Use a notification if NO data is passed either way.
             if (xQueuePeek(queueCmdRequests, (void *)&ptrWifiCmdRequest, 0)) // Do I have a command request in the queue?
             {
                 if (ptrWifiCmdRequest != nullptr)
@@ -202,7 +199,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Start");
 
-                idleCadence = false; // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 0; // Don't permit scheduler delays in Run processing.
                 wifiShdnStep = WIFI_SHUTDOWN::Cancel_Directives;
                 [[fallthrough]];
             }
@@ -258,7 +255,7 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Finished");
                 // This exits the run function. (notice how the compiler doesn't complain about a missing break statement)
                 // In the runMarshaller, the task is deleted and the task handler set to nullptr.
-                idleCadence = true; // Return to relaxed scheduling.
+                cadenceTimeDelay = 250; // Return to relaxed scheduling.
                 return;
             }
             }
@@ -515,7 +512,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Start");
 
-                idleCadence = false; // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 0; // Don't permit scheduler delays in Run processing.
                 wifiConnStep = WIFI_CONN::Create_Netif_Objects;
                 [[fallthrough]];
             }
@@ -813,7 +810,7 @@ void Wifi::run(void)
                 while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_CONNECTED), eSetValueWithoutOverwrite))
                     vTaskDelay(pdMS_TO_TICKS(50));
 
-                idleCadence = true; // Return to relaxed scheduling.
+                cadenceTimeDelay = 250; // Return to relaxed scheduling.
                 wifiOP = WIFI_OP::Directives;
                 break;
             }
@@ -837,7 +834,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Start");
 
-                idleCadence = false; // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 0; // Don't permit scheduler delays in Run processing.
                 wifiDiscStep = WIFI_DISC::Cancel_Connect;
                 [[fallthrough]];
             }
@@ -999,7 +996,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Finished");
 
-                idleCadence = true; // Return to relaxed scheduling.
+                cadenceTimeDelay = 250; // Return to relaxed scheduling.
 
                 // This is perhaps a secondary call back to the System to annouce a disconnection.
                 while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
@@ -1044,7 +1041,8 @@ void Wifi::run(void)
 
         case WIFI_OP::Error:
         {
-            // By default we will set the state disconnected
+            cadenceTimeDelay = 250; // Return to relaxed scheduling.
+
             while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
                 vTaskDelay(pdMS_TO_TICKS(50));
 
@@ -1055,7 +1053,7 @@ void Wifi::run(void)
 
         case WIFI_OP::Idle:
         {
-            idleCadence = true; // Return to relaxed scheduling.
+            cadenceTimeDelay = 250; // Return to relaxed scheduling.
             vTaskDelay(pdMS_TO_TICKS(5000));
             break;
         }
