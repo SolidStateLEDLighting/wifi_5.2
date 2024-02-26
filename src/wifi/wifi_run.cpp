@@ -18,7 +18,6 @@ void Wifi::run(void)
     esp_err_t ret = ESP_OK;
 
     bool idleCadence = true;
-    bool shutDown = false;
     bool cmdRunDirectives = false;
 
     uint32_t wifiConnStartTicks = 0;
@@ -36,7 +35,7 @@ void Wifi::run(void)
         // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here
         // is that this is our yeild time back to the scheduler.  We don't need to perform another yeild in an other place
         // to cooperatively yeild to the OS.  If we have things to do, we don't add any delay time, but if all processes
-        // are finished, then we will add 250 delay time in waiting for a Task Notification.  This permits us to reduce 
+        // are finished, then we will add 250 delay time in waiting for a Task Notification.  This permits us to reduce
         // power consumption when we are not busy without sacrificing latentcy when we are busy.
         //
         if (idleCadence)
@@ -105,7 +104,9 @@ void Wifi::run(void)
             {
                 if (show & _showRun)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Received WIFI_NOTIFY::CMD_SHUT_DOWN");
-                shutDown = true;
+
+                wifiShdnStep = WIFI_SHUTDOWN::Start;
+                wifiOP = WIFI_OP::Shutdown;
                 break;
             }
             }
@@ -168,16 +169,12 @@ void Wifi::run(void)
         {
         case WIFI_OP::Run:
         {
-            if (shutDown) // Don't reset the flag here...
+            if (cmdRunDirectives) // Do we have any directives?  Run them when all other commands are Finished.
             {
-                wifiShdnStep = WIFI_SHUTDOWN::Start;
-                wifiOP = WIFI_OP::Shutdown;
-                break;
-            }
-
-            if (cmdRunDirectives) // Do we have any directives?
-            {
-                if (allOperationsFinished()) // Don't allow directives to run until all other operations are in a Finished state
+                if ((wifiShdnStep == WIFI_SHUTDOWN::Finished) &&
+                    (wifiInitStep == WIFI_INIT::Finished) &&
+                    (wifiConnStep == WIFI_CONN::Finished) &&
+                    (wifiDiscStep == WIFI_DISC::Finished))
                 {
                     cmdRunDirectives = false;                    // Clear the flag
                     wifiDirectivesStep = WIFI_DIRECTIVES::Start; //
@@ -186,7 +183,7 @@ void Wifi::run(void)
                 }
             }
 
-            sntp->run(); // We still need to enter here occasionally so the SNTP can process any server updates.
+            sntp->run(); // We still need to enter SNTP can it process server events.
             break;
         }
 
@@ -250,7 +247,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Final_Items - Step " + std::to_string((int)WIFI_SHUTDOWN::Final_Items));
 
-                // Note: Allow the destructor to play its part.  Don't touch any resources which are destoryed inside the destructor.
+                // Note: Allow the destructor to play its part.  Don't touch any resources which are destroyed inside the destructor.
                 wifiShdnStep = WIFI_SHUTDOWN::Finished;
                 break;
             }

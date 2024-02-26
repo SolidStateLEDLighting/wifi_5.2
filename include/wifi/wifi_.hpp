@@ -127,7 +127,5 @@ extern "C"
         WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                   //
         WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;           //
 
-        /* Wifi_Utilities */
-        bool allOperationsFinished(void);
     };
 }
