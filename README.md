@@ -1,5 +1,8 @@
 # Wifi 5.2 Component
 
+**Monday Feburary 26th -- We are sprucing up the documentation side of the project.**  
+**The next service to be added to Wifi will be Universal Wifi Provisioning and perhaps the option of failing over to a secondary host.**  
+
 This components has been tested with: 
 * **ESP-IDF-Advanced-Template-Alpha-5.2**
 

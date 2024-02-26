@@ -36,7 +36,7 @@ void Wifi::run(void)
         // time back to the scheduler.  We don't need to perform another yeild anywhere else to cooperatively yeild to the OS.
         // If we have things to do, we maintain cadenceTimeDelay = 0, but if all processes are finished, then we will place 250mSec delay time in
         // cadenceTimeDelay for a Task Notification wait.  This permits us to reduce power consumption when we are not busy without sacrificing latentcy
-        // when we are busy.  Relaxed schduling with 250mSec equates to about 4Hz run() loop cadence.
+        // when we are busy.  Relaxed schduling with 250mSec equates to about a 4Hz run() loop cadence.
         //
         wifiTaskNotifyValue = static_cast<WIFI_NOTIFY>(ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(cadenceTimeDelay)));
 
