@@ -8,7 +8,7 @@ We define a list of wifi operations in wifi_enum.hpp.  There are currently 8.  T
 * Connect Operation
 * Disconnect Operation
 * Error Operation
-* Idle Operation
+* Idle Operation  
 **THIS DIAGRAM IS BEING UPDATED**  
 
 ### Run Operation
