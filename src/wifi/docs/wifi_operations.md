@@ -1,5 +1,5 @@
 # Wifi Operations
-We define a list of wifi operations in wifi_enum.hpp.  There are currently 8.  These operations lead to all other sub-operations within the Wifi object.
+We define a list of 8 wifi operations in wifi_enum.hpp.  These operations lead to all other states within the Wifi object.
 * Run Operation
 * Shutdown Operation
 * Init Operation
