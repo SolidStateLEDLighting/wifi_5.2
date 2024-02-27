@@ -6,10 +6,8 @@ ___
 ## wifi_run.cpp flowcharts
 This is the most important area of processing for the Wifi object.
 
-**NOTE: This drawing has become so large that you may not be able to view it inside a browser. You may be forced to download it and view it locally.**
-
-**THIS CHART IS BEING UPDATED**  
-
+**NOTE: This drawing has become so large that you may not be able to view it inside a browser. You may be forced to download it and view it locally.**  
+![Wifi Flowchart Run](./drawings/wifi_flowchart_run.svg)  
 ___  
 Here is our Event handing in the run task:
 
