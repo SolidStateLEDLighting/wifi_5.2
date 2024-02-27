@@ -1,3 +1,5 @@
+/** YOU MUST VIEW THIS PROJECT IN VS CODE TO SEE FOLDING AND THE PERFECTION OF THE DESIGN **/
+
 #include "wifi/wifi_.hpp"
 #include "system_.hpp"
 
@@ -153,7 +155,6 @@ void Wifi::run(void)
 
                     show = ptrWifiCmdRequest->data[0];
                     showWifi = ptrWifiCmdRequest->data[1];
-
                     setLogLevels();
                     break;
                 }

@@ -1,3 +1,5 @@
+/** YOU MUST VIEW THIS PROJECT IN VS CODE TO SEE FOLDING AND THE PERFECTION OF THE DESIGN **/
+
 #include "sntp/sntp_.hpp"
 #include "system_.hpp"
 
