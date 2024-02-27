@@ -394,7 +394,7 @@ void Wifi::run(void)
                 else
                     wifiDirectivesStep = WIFI_DIRECTIVES::Finished;
 
-                continue; // We really don't need an RTOS yield here.
+                [[fallthrough]]; // We really don't need an RTOS yield here.
             }
 
             case WIFI_DIRECTIVES::Clear_Data:
@@ -442,7 +442,7 @@ void Wifi::run(void)
                     break; // Vector off to Disconnect
                 }
                 wifiDirectivesStep = WIFI_DIRECTIVES::Connect_Host; // Advanced to the next possible directive
-                continue;
+                [[fallthrough]];
             }
 
             case WIFI_DIRECTIVES::Connect_Host:
@@ -478,7 +478,7 @@ void Wifi::run(void)
                 }
 
                 wifiDirectivesStep = WIFI_DIRECTIVES::Finished;
-                continue;
+                [[fallthrough]];
             }
 
             case WIFI_DIRECTIVES::Finished:
@@ -861,7 +861,7 @@ void Wifi::run(void)
                     wifiConnStep = WIFI_CONN::Finished; // Make sure the the connection process is canceled.
                 }
 
-                continue; // Continue without an RTOS break so we jump to the correct step.
+                break;
             }
 
             case WIFI_DISC::Deinitialize_SNTP:
@@ -898,7 +898,7 @@ void Wifi::run(void)
                     {
                         errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_stop() error : " + esp_err_to_name(ret);
                         wifiDiscStep = WIFI_DISC::Error;
-                        continue;
+                        break;
                     }
                 }
                 else if (ret == ESP_ERR_WIFI_NOT_INIT)
@@ -909,7 +909,7 @@ void Wifi::run(void)
                 {
                     errMsg = std::string(__func__) + "(): WIFI_DISC::Wifi_Disconnect: esp_wifi_disconnect() error : " + esp_err_to_name(ret);
                     wifiDiscStep = WIFI_DISC::Error;
-                    continue;
+                    break;
                 }
 
                 wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Secondary assignment here just in case the Disconnect event doesn't fire as expected.
@@ -1041,7 +1041,7 @@ void Wifi::run(void)
 
             routeLogByValue(LOG_TYPE::ERROR, errMsg);
             wifiOP = WIFI_OP::Idle;
-            continue;
+            [[fallthrough]];
         }
 
         case WIFI_OP::Idle:
