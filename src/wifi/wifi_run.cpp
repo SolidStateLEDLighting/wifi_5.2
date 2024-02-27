@@ -452,13 +452,13 @@ void Wifi::run(void)
 
                 if (wifiDirectives & _wifiConnectPriHost)
                 {
+                    wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
+
                     if (!autoConnect) // If false -- set autoConnect to true
                     {
                         autoConnect = true; // Always set autoConnect UNLESS you manually disconnect...
                         saveVariablesToNVS();
                     }
-
-                    wifiDirectives &= ~_wifiConnectPriHost; // Cancel this flag.
 
                     if (wifiConnState != WIFI_CONN_STATE::WIFI_CONNECTED_STA) // Only consider connecting if not connected...
                     {
@@ -488,8 +488,8 @@ void Wifi::run(void)
 
                 if (wifiDirectives > 0) // If another directive has come in, restart our directives process
                     wifiDirectivesStep = WIFI_DIRECTIVES::Start;
-
-                wifiOP = WIFI_OP::Run;
+                else
+                    wifiOP = WIFI_OP::Run;
                 break;
             }
             }
