@@ -236,18 +236,8 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Wait_For_Disconnection - Step " + std::to_string((int)WIFI_SHUTDOWN::Wait_For_Disconnection));
 
                 if (wifiConnState == WIFI_CONN_STATE::WIFI_DISCONNECTED)
-                    wifiShdnStep = WIFI_SHUTDOWN::Final_Items;
-                break;
-            }
-
-            case WIFI_SHUTDOWN::Final_Items: // Clean up any resources that were created by the run task.
-            {
-                if (showWifi & _showWifiShdnSteps)
-                    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Final_Items - Step " + std::to_string((int)WIFI_SHUTDOWN::Final_Items));
-
-                // Note: Allow the destructor to play its part.  Don't touch any resources which are destroyed inside the destructor.
-                wifiShdnStep = WIFI_SHUTDOWN::Finished;
-                break;
+                    wifiShdnStep = WIFI_SHUTDOWN::Finished;
+                [[fallthrough]];
             }
 
             case WIFI_SHUTDOWN::Finished:
@@ -257,6 +247,7 @@ void Wifi::run(void)
                 // This exits the run function. (notice how the compiler doesn't complain about a missing break statement)
                 // In the runMarshaller, the task is deleted and the task handler set to nullptr.
                 cadenceTimeDelay = 250; // Return to relaxed scheduling.
+                wifiOP = WIFI_OP::Run;
                 return;
             }
             }
@@ -272,7 +263,8 @@ void Wifi::run(void)
                 if (show & _showInit)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Start");
 
-                wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Always a cold start initialization.
+                cadenceTimeDelay = 0;                               // Don't permit scheduler delays in Run processing.
+                wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Reset the connection state.
 
                 wifiInitStep = WIFI_INIT::Checks;
                 [[fallthrough]];
@@ -287,7 +279,7 @@ void Wifi::run(void)
 
                 if (sntp == nullptr)
                 {
-                    errMsg = std::string(__func__) + "(): Who forgot to instantiate nvs?";
+                    errMsg = std::string(__func__) + "(): Who forgot to instantiate sntp?";
                     wifiOP = WIFI_OP::Error; // Effectively, this is an assert without an abort.
                     break;
                 }
@@ -308,8 +300,7 @@ void Wifi::run(void)
                 if (show & _showInit)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Set_Variables_From_Config - Step " + std::to_string((int)WIFI_INIT::Set_Variables_From_Config));
                 //
-                // Any value held in Config will over-write any value stored in the system.  Always clear Config values before sending product
-                // to the field.
+                // Any value held in Config will over-write any value stored in the system.  Make sure Config values are clear before sending product to the field.
                 //
                 std::string configValue = CONFIG_ESP_WIFI_STA_SSID_PRI;
 
@@ -358,6 +349,7 @@ void Wifi::run(void)
                 if (show & _showInit)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Finished");
 
+                cadenceTimeDelay = 250;       // Return to relaxed scheduling.
                 xSemaphoreGive(semWifiEntry); // Allow entry from any other calling tasks
                 wifiOP = WIFI_OP::Run;
                 break;

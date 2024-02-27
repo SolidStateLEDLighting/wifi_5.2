@@ -56,7 +56,6 @@ enum class WIFI_SHUTDOWN : uint8_t
     Cancel_Directives,
     Disconnect_Wifi,
     Wait_For_Disconnection,
-    Final_Items,
     Finished,
 };
 
