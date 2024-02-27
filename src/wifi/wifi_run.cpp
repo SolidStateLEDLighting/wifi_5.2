@@ -1024,6 +1024,7 @@ void Wifi::run(void)
             {
                 if (showWifi & _showWifiDiscSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_DISC::Error");
+                wifiConnStep = WIFI_CONN::Finished;
                 wifiOP = WIFI_OP::Error;
                 break;
             }
