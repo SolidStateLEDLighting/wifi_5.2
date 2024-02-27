@@ -8,7 +8,7 @@ This is the most important area of processing for the Wifi object.
 
 **THIS CHART IS NOT UP TO DATE YET (Feb27TH)**
 
-**NOTE: This drawing has become so large that you may not be able to view it inside a browser. You may be forced to download it and view it locally.**  
+**NOTE: This drawing has become so large that you may not be able to view it inside a browser. You may be forced to download it and view locally.**  
 ![Wifi Flowchart Run](./drawings/wifi_flowchart_run.svg)  
 ___  
 ## wifi_run.cpp
