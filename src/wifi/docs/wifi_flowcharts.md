@@ -9,7 +9,7 @@ This is the most important area of processing for the Wifi object.
 ![Wifi Flowchart Run](./drawings/wifi_flowchart_run.svg)  
 ___  
 ## wifi_run.cpp
-Here is our Event handing in the run task:  
+Here is our Event handing in the run task.  At this point, all event state data has been marshalled over to the _wifi task.  We sequentially dispose of each event from our Queue and process as many events as are there (in a single entry).  Typically, there will only be one event in this queue, but two are more are possible though highly unlikely.  
 ![Wifi Flowchart Event Run](./drawings/wifi_flowchart_event_run.svg)  
 ___  
 ## wifi_events.cpp
