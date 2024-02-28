@@ -10,7 +10,7 @@ This is the most important area of processing for the Wifi object.
 ___  
 ## wifi_run.cpp
 Here is our Event handing in the run task:  
-**THIS CHART IS BEING UPDATED**  
+![Wifi Flowchart Event Run](./drawings/wifi_flowchart_event_run.svg)  
 ___  
 ## wifi_events.cpp
 Events arrive at the Wifi Object via the default event loop.  Our strategy is always to quickly dispose of events by copying any provided data, and then marshelling all operational action over to the Run task.  This makes all event handling native to the Wifi object's run thread and removes any possible resource access conflict between the default event loop task and the wifi object's run task.  
