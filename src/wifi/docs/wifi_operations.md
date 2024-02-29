@@ -8,7 +8,7 @@ We define a list of 8 wifi operations in wifi_enum.hpp.  These operations lead t
 * Disconnect Operation
 * Error Operation
 * Idle Operation  
-![Wifi Operations](./drawings/wifi_operations_block.svg)
+![Wifi Operations](./drawings/wifi_block_operations.svg)
 ### Run Operation
 In all objects, a Run operation (contained inside a Run task) is centeral to it's normal operation.  Much of a task's operational time is spent here.  It looks for pending actions, and sometimes state changes.  This this case we may be responding to a Directive or making calls to contained objects (sntp-run()).
 
