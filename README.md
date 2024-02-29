@@ -1,8 +1,7 @@
 # Wifi 5.2 Component
 
-This components has been tested with: 
-* **ESP-IDF-Advanced-Template-Alpha-5.2**
-new change
+This components has been tested with: **ESP-IDF-Advanced-Template-Alpha-5.2**  
+
 **Expected changes to arrive:**  
 * Adding Secondary Host
 * Universal Wifi Provisioning
