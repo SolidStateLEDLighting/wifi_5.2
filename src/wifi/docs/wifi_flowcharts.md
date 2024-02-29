@@ -13,6 +13,6 @@ Events arrive at the Wifi Object via the default event loop.  The default event 
 ![Wifi Flowchart Event](./drawings/wifi_flowchart_event.svg)  
 ___  
 ## wifi_run.cpp
-Here is our Event handing.  This logically follows receiving event in the previous paragraph.  At this point, all event state data has been marshalled over to the wifi_run task.  We sequentially dispose of each event from our Queue and process as many events as are there (in a single entry).  Typically, there will only be one event in this queue, but two are more are possible though highly unlikely.  
+Here is our Event handing.  This logically follows receiving events in the previous paragraph.  At this point, all event state data has been marshalled over to the wifi_run task.  We sequentially dispose of each event from our Queue and process as many events as are there (in a single entry).  Typically, there will only be one event in this queue, but two are more are possible though highly unlikely.  
 ![Wifi Flowchart Event Run](./drawings/wifi_flowchart_event_run.svg)  
 ___  

@@ -36,10 +36,10 @@ extern "C"
         void runEvents(void);
 
     private:
-        char TAG[6] = "_sntp";
-
         SNTP(const SNTP &) = delete;           // Disable copy constructor
         void operator=(SNTP const &) = delete; // Disable assignment operator
+
+        char TAG[6] = "_sntp";
 
         /* Object References */
         System *sys = nullptr;

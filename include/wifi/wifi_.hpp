@@ -42,6 +42,9 @@ extern "C"
         void printTaskInfoByColumns(void);
 
     private:
+        Wifi(const Wifi &) = delete;           // Disable copy constructor
+        void operator=(Wifi const &) = delete; // Disable assignment operator
+
         char TAG[6] = "_wifi";
 
         /* Object References */
@@ -118,7 +121,7 @@ extern "C"
         static void runMarshaller(void *);
         void run(void);
         void runEvents();
-        
+
         WIFI_OP wifiOP = WIFI_OP::Idle;                                 // Object States
         WIFI_CONN_STATE wifiConnState = WIFI_CONN_STATE::NONE;          //
         WIFI_INIT wifiInitStep = WIFI_INIT::Finished;                   //
@@ -126,6 +129,5 @@ extern "C"
         WIFI_CONN wifiConnStep = WIFI_CONN::Finished;                   //
         WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                   //
         WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;           //
-
     };
 }
