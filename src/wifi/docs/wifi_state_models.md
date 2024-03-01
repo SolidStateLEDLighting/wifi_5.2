@@ -13,4 +13,5 @@ The disconnection state model is much simplier and there is nothing to wait for.
 ![Disconnect State Model](./drawings/wifi_state_model_disconnect.svg)
 ___   
 The shutdown process is fairly straightforward.  We do hand of control to the disconnection process and then it returns to the shutdown process.
+![Shutdown State Model](./drawings/wifi_state_model_shutdown.svg)
 ___  

@@ -1008,11 +1008,10 @@ void Wifi::run(void)
 
                 if (wifiHostTimeOut || wifiIPAddressTimeOut || wifiNoValidTimeTimeOut) // Are we servicing a Host or SNTP timeout?
                 {
-                    wifiConnStep = WIFI_CONN::Start; //
-                    wifiOP = WIFI_OP::Connect;       // We always try to start again after a disconnection that is not commanded.
+                    wifiConnStep = WIFI_CONN::Start; // We always try to start again after a disconnection that is not commanded.
+                    wifiOP = WIFI_OP::Connect;       // 
                 }
-                // Favor running from the directives if we have any because in the future, 
-                // we will implement the option of rotating over to a secondary network.
+                // Favor running from the directives if we have any because in the future, we will implement the option of rotating over to a secondary network.
                 if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
                     wifiOP = WIFI_OP::Directives; // Make plans to return to Directives it if is not in a Finished state.
                 break;

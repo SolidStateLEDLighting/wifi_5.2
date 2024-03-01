@@ -1,12 +1,11 @@
 # Wifi 5.2 Component
 
 This components has been tested with: **ESP-IDF-Advanced-Template-Alpha-5.2**  
+**This component includes both Wifi and SNTP functionality**
 
 **Expected changes to arrive:**  
 * Adding Secondary Host
 * Universal Wifi Provisioning
-
-**This component includes both Wifi and SNTP functionality**
 ___  
 ## Wifi Object  
 One notable behavior that is important to observe is that the process of connecting to Wifi takes a fair amount of time. It is composed of 3 steps:
