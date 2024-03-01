@@ -237,7 +237,7 @@ void Wifi::run(void)
 
                 if (wifiConnState == WIFI_CONN_STATE::WIFI_DISCONNECTED)
                     wifiShdnStep = WIFI_SHUTDOWN::Finished;
-                [[fallthrough]];
+                break;
             }
 
             case WIFI_SHUTDOWN::Finished:
@@ -990,33 +990,31 @@ void Wifi::run(void)
 
                 cadenceTimeDelay = 250; // Return to relaxed scheduling.
 
-                // This is perhaps a secondary call back to the System to annouce a disconnection.
+                // This could potientially be a secondary call back to the System to annouce a disconnection.
                 while (!xTaskNotify(taskHandleSystemRun, static_cast<uint32_t>(SYS_NOTIFY::NFY_WIFI_DISCONNECTED), eSetValueWithoutOverwrite))
                     vTaskDelay(pdMS_TO_TICKS(50));
 
-                if (wifiHostTimeOut || wifiIPAddressTimeOut || wifiNoValidTimeTimeOut) // Are we servicing a Host or SNTP timeout.  We need to restart.
+                if (wifiShdnStep != WIFI_SHUTDOWN::Finished) // Give priority to a call for Shut Down
                 {
-                    // Favor running from the directives if we have any because in the future, we will impliment the option of rotating over to a secondary
-                    // network.
-                    if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
-                        wifiOP = WIFI_OP::Directives;
-                    else // Otherwise assume this time out is a service interruption.
-                    {
-                        wifiConnStep = WIFI_CONN::Start; //
-                        wifiOP = WIFI_OP::Connect;       // We always try to start again after a disconnection that is not commanded.
-                    }
+                    if (showWifi & _showWifiDiscSteps)
+                        routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Returning to Shutdown...");
+
+                    wifiHostTimeOut = false;
+                    wifiIPAddressTimeOut = false;
+                    wifiNoValidTimeTimeOut = false;
+                    wifiOP = WIFI_OP::Shutdown; 
+                    break;
                 }
-                else
+
+                if (wifiHostTimeOut || wifiIPAddressTimeOut || wifiNoValidTimeTimeOut) // Are we servicing a Host or SNTP timeout?
                 {
-                    if (wifiShdnStep != WIFI_SHUTDOWN::Finished) // Give return priority to a call for Shut Down
-                    {
-                        wifiOP = WIFI_OP::Shutdown;
-                        if (showWifi & _showWifiDiscSteps)
-                            routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): Returning to Shutdown...");
-                    }
-                    else if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
-                        wifiOP = WIFI_OP::Directives; // Make plans to return to Directives it if is not in a Finished state.
+                    wifiConnStep = WIFI_CONN::Start; //
+                    wifiOP = WIFI_OP::Connect;       // We always try to start again after a disconnection that is not commanded.
                 }
+                // Favor running from the directives if we have any because in the future, 
+                // we will implement the option of rotating over to a secondary network.
+                if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
+                    wifiOP = WIFI_OP::Directives; // Make plans to return to Directives it if is not in a Finished state.
                 break;
             }
 
