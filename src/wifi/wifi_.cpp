@@ -45,6 +45,8 @@ Wifi::Wifi()
 
     wifiInitStep = WIFI_INIT::Start; // Allow the object to initialize.  This takes some time.
     wifiOP = WIFI_OP::Init;
+
+    routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): runStackSizek: " + std::to_string(runStackSizeK));
     xTaskCreate(runMarshaller, "wifi_run", 1024 * runStackSizeK, this, TASK_PRIORITY_MID, &taskHandleWIFIRun);
 }
 

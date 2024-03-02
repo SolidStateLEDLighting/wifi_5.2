@@ -235,9 +235,11 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Wait_For_Disconnection - Step " + std::to_string((int)WIFI_SHUTDOWN::Wait_For_Disconnection));
 
-                if (wifiConnState == WIFI_CONN_STATE::WIFI_DISCONNECTED)
-                    wifiShdnStep = WIFI_SHUTDOWN::Finished;
-                break;
+                if (wifiConnState != WIFI_CONN_STATE::WIFI_DISCONNECTED) //
+                    break;                                               // Not disconnected yet
+
+                wifiShdnStep = WIFI_SHUTDOWN::Finished; // All finished
+                [[fallthrough]];                        //
             }
 
             case WIFI_SHUTDOWN::Finished:
@@ -246,8 +248,6 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Finished");
                 // This exits the run function. (notice how the compiler doesn't complain about a missing break statement)
                 // In the runMarshaller, the task is deleted and the task handler set to nullptr.
-                cadenceTimeDelay = 250; // Return to relaxed scheduling.
-                wifiOP = WIFI_OP::Run;
                 return;
             }
             }
@@ -1002,14 +1002,14 @@ void Wifi::run(void)
                     wifiHostTimeOut = false;
                     wifiIPAddressTimeOut = false;
                     wifiNoValidTimeTimeOut = false;
-                    wifiOP = WIFI_OP::Shutdown; 
+                    wifiOP = WIFI_OP::Shutdown;
                     break;
                 }
 
                 if (wifiHostTimeOut || wifiIPAddressTimeOut || wifiNoValidTimeTimeOut) // Are we servicing a Host or SNTP timeout?
                 {
                     wifiConnStep = WIFI_CONN::Start; // We always try to start again after a disconnection that is not commanded.
-                    wifiOP = WIFI_OP::Connect;       // 
+                    wifiOP = WIFI_OP::Connect;       //
                 }
                 // Favor running from the directives if we have any because in the future, we will implement the option of rotating over to a secondary network.
                 if (wifiDirectivesStep != WIFI_DIRECTIVES::Finished)
