@@ -54,31 +54,29 @@ Wifi::~Wifi()
 {
     // Process of destroying this object:
     // 1) Lock the object with its entry semaphore. (done by the caller)
-    // 2) Send a task notification to Shutdown. (Looks like we are sending it to ourselves here, but this is not so...)
-    // 3) Watch the runTaskHandle (and any other possible task handles) and wait for them to clean up and then become nullptr.
-    // 4) Clean up other resources created by calling task.
-    // 5) UnLock the its entry semaphore.
-    // 6) Destroy all semaphore at the same time (for good organization). Again, these are created by calling task in constructor.
-    // 7) Done.
+    // 2) Send out notifications to the users of Wifi that it is shutting down. (done by caller)
+    // 3) Send a task notification to CMD_SHUT_DOWN. (Looks like we are sending it to ourselves here, but this is not so...)
+    // 4) Watch the runTaskHandle (and any other possible task handles) and wait for them to clean up and then become nullptr.
+    // 5) Clean up other resources created by calling task.
+    // 6) UnLock the its entry semaphore.
+    // 7) Destroy all semaphores and queues at the same time. These are created by calling task in the constructor.
+    // 8) Done.
 
-    // The calling task can still send taskNotifications to the wifi task!
+    // NOTE: The calling task can still send taskNotifications to the wifi task!
     while (!xTaskNotify(taskHandleWIFIRun, static_cast<uint32_t>(WIFI_NOTIFY::CMD_SHUT_DOWN), eSetValueWithoutOverwrite))
         vTaskDelay(pdMS_TO_TICKS(50)); // Wait for the notification to be received.
-    taskYIELD();                       // One last yeild to make sure Idle task can run.
+    taskYIELD();                       // One last yield to make sure Idle task can run.
 
     while (taskHandleWIFIRun != nullptr)
         vTaskDelay(pdMS_TO_TICKS(50)); // Wait for the wifi task handle to become null.
-    taskYIELD();                       // One last yeild to make sure Idle task can run.
+    taskYIELD();                       // One last yield to make sure Idle task can run.
 
-    /* Destroy sntp */
-    if (sntp != nullptr)
-        delete sntp; // Has no active tasks so it is simple to destroy
+    if (sntp != nullptr) // Destroy sntp
+        delete sntp;     // Has no active tasks so it is simple to destroy
 
     xSemaphoreGive(semWifiEntry); // Remember, this is the calling task which calls to "Give"
     destroySemaphores();
     destroyQueues();
-
-    // When the destructor returns to the caller, the entire process is finished.
 }
 
 void Wifi::setShowFlags()

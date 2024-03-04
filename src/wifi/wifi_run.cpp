@@ -34,8 +34,8 @@ void Wifi::run(void)
         if (uxQueueMessagesWaiting(queueEvents)) // We always give top priorty to handling events
             runEvents();
         //
-        // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here is that this is our yeild
-        // time back to the scheduler.  We don't need to perform another yeild anywhere else to cooperatively yeild to the OS.
+        // In every pass, we examine Task Notifications and/or the Command Request Queue.  The extra bonus we get here is that this is our yield
+        // time back to the scheduler.  We don't need to perform another yield anywhere else to cooperatively yield to the OS.
         // If we have things to do, we maintain cadenceTimeDelay = 0, but if all processes are finished, then we will place 250mSec delay time in
         // cadenceTimeDelay for a Task Notification wait.  This permits us to reduce power consumption when we are not busy without sacrificing latentcy
         // when we are busy.  Relaxed schduling with 250mSec equates to about a 4Hz run() loop cadence.
