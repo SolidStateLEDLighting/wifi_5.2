@@ -6,8 +6,6 @@ Some of the sequences you may be interested in were mentioned previously in the 
 * The System Calling on Wifi to Disconnect
 Please refer to that document for those sequences.
 
-XXX
-
 Here is the sequence for how the System Creates the Wifi object.
 ![Calling Constructor Sequence](./drawings/wifi_sequence_calling_constructor.svg) 
 ___  
