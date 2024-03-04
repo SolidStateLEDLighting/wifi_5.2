@@ -34,11 +34,10 @@ Wifi::Wifi()
     if (sntp == nullptr)
         sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
 
-    setShowFlags();     // Enable logging statements for any area of concern.
-    setLogLevels();     // Manually sets log levels for other tasks down the call stack.
-    createSemaphores(); // Creates any locking semaphores owned by this object.
-    createQueues();     // We use queues in several areas.
-
+    setShowFlags();            // Enable logging statements for any area of concern.
+    setLogLevels();            // Manually sets log levels for other tasks down the call stack.
+    createSemaphores();        // Creates any locking semaphores owned by this object.
+    createQueues();            // We use queues in several areas.
     restoreVariablesFromNVS(); // Brings back all our persistant data.
 
     xSemaphoreTake(semWifiEntry, portMAX_DELAY); // Take our semaphore and thereby lock entry to this object during its initialization.

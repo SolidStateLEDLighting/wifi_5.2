@@ -12,14 +12,11 @@ SNTP::SNTP()
 {
     ptrSNTPInternal = this; // We plan on removing this someday when all ESP event handlers can be passed a 'this' pointer during registration.
 
-    setShowFlags();     // Enable logging statements for any area of concern.
-    setLogLevels();     // Manually sets log levels for other tasks down the call stack.
-    createSemaphores(); // Creates any locking semaphores owned by this object.
-    createQueues();     // We use queues in several areas.
-
+    setShowFlags();            // Enable logging statements for any area of concern.
+    setLogLevels();            // Manually sets log levels for other tasks down the call stack.
+    createSemaphores();        // Creates any locking semaphores owned by this object.
+    createQueues();            // We use queues in several areas.
     restoreVariablesFromNVS(); // Brings back all our persistant data.
-
-    // NOTE: We don't need a locking entry semaphore in this object.
 }
 
 SNTP::~SNTP()
