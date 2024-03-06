@@ -4,7 +4,7 @@
 #include "system_.hpp"
 
 //
-// NOTE: The run function is not called by a local Task so it behaves a bit differently.  We enter here from the Wifi object.
+// NOTE: The run function is not called by a local task so it behaves a bit differently.  We enter here from the Wifi object.
 //       Upon entering, we process any events that may have occurred first.   Then we (re)enter any state processing that may be in progress.
 //       This appears to be the right solution for an instance which has no task and is owned ('has as' relationship) by a parent object.
 //
@@ -43,7 +43,7 @@ void SNTP::run(void)
             // https://sites.google.com/a/usapiens.com/opnode/time-zones
             // setenv("TZ", "CEST-2", 1);  // This is the time zone for Europe/Berlin
             // setenv("TZ", "EST5EDT", 1); // This is US EST
-            // setenv("TZ", "HKT-8", 1);   // This is the Phillippines
+            // setenv("TZ", "HKT-8", 1);   // This is the Philippines
 
             std::string temp = CONFIG_SNTP_TIME_ZONE;
 
