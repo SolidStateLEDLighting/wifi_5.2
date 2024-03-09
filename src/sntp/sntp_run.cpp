@@ -151,8 +151,7 @@ void SNTP::run(void)
 
                 if (waitingOnEpochTimeSec > waitingOnEpochTimeSecMax)
                 {
-                    serverIndex++;
-                    if (serverIndex > 4) // 4 servers to rotate through
+                    if (++serverIndex > 4) // 4 servers to rotate through
                         serverIndex = 1;
 
                     if (showSNTP & _showSNTPConnSteps)
