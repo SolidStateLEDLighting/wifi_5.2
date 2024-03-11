@@ -669,6 +669,7 @@ void Wifi::run(void)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Wifi_Start - Step " + std::to_string((int)WIFI_CONN::Wifi_Start));
 
                 ESP_GOTO_ON_ERROR(esp_wifi_start(), wifi_Wifi_Start_err, TAG, "WIFI_CONN::Wifi_Start esp_wifi_start() failed");
+                ESP_GOTO_ON_ERROR(esp_wifi_set_ps(WIFI_PS_MIN_MODEM), wifi_Wifi_Start_err, TAG, "WIFI_CONN::Wifi_Start esp_wifi_set_ps() failed");
 
                 wifiHostTimeOut = false;                  // Reset all the flags and start the timer algorithm.
                 wifiIPAddressTimeOut = false;             //
