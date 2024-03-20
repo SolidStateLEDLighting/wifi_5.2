@@ -200,7 +200,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiShdnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_SHUTDOWN::Start");
 
-                cadenceTimeDelay = 0; // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 10; // Always allow a bit of delay in Run processing.
                 wifiShdnStep = WIFI_SHUTDOWN::Cancel_Directives;
                 [[fallthrough]];
             }
@@ -263,7 +263,7 @@ void Wifi::run(void)
                 if (show & _showInit)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_INIT::Start");
 
-                cadenceTimeDelay = 0;                               // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 10;                               // Don't permit scheduler delays in Run processing.
                 wifiConnState = WIFI_CONN_STATE::WIFI_DISCONNECTED; // Reset the connection state.
 
                 wifiInitStep = WIFI_INIT::Checks;
@@ -505,7 +505,7 @@ void Wifi::run(void)
                 if (showWifi & _showWifiConnSteps)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): WIFI_CONN::Start");
 
-                cadenceTimeDelay = 0; // Don't permit scheduler delays in Run processing.
+                cadenceTimeDelay = 10; // Don't permit scheduler delays in Run processing.
                 wifiConnStep = WIFI_CONN::Create_Netif_Objects;
                 [[fallthrough]];
             }
