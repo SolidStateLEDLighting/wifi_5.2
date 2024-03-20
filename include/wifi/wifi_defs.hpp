@@ -18,7 +18,7 @@
 #define _wifiProvisionSecdHost 0x10 //
 #define _wifiConnectPriHost 0x20    //
 #define _wifiConnectSecdHost 0x40   // NOTE: Secondary Host is not support in this project
-#define _wifiExitRun 0x80           // Not implimented
+#define _wifiExitRun 0x80           // Not implemented
 
 /* hostStatus */
 #define _hostPriValid 0x01 // LSB
