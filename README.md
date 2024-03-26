@@ -5,7 +5,7 @@ This components has been tested with: **ESP-IDF-Advanced-Template-Alpha-5.2**
 
 **Expected changes to arrive:**  
 * Adding Secondary Host
-* Universal Wifi Provisioning
+* Universal Wifi Provisioning (WORKING ON THIS CURRENTLY)
 ___  
 ## Wifi Object  
 One notable behavior that is important to observe is that the process of connecting to Wifi takes a fair amount of time. It is composed of 3 steps:
