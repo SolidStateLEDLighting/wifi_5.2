@@ -341,7 +341,7 @@ void PROV::run(void)
                 if (showPROV & _showProvRun)
                     routeLogByValue(LOG_TYPE::INFO, std::string(__func__) + "(): PROV_RUN::Finished");
 
-                printTaskInfoByColumns();
+                // printTaskInfoByColumns();
 
                 if (semProvEntry != NULL)
                     xSemaphoreGive(semProvEntry); // Allow the calling object to continue.
