@@ -6,6 +6,7 @@ set(WIFI_REQUIRES
     nvs_5.2
     esp_netif
     esp_wifi
+    wifi_provisioning
 )
 #
 #

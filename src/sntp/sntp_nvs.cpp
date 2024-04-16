@@ -5,7 +5,6 @@
 #include "esp_check.h"
 
 /* External Semaphores */
-extern SemaphoreHandle_t semSysEntry;
 extern SemaphoreHandle_t semNVSEntry;
 
 /* NVS */

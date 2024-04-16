@@ -14,8 +14,8 @@
 #define _wifiClearPriHostInfo 0x01  // LSB
 #define _wifiClearSecdHostInfo 0x02 // NOTE: Secondary Host is not support in this project
 #define _wifiDisconnectHost 0x04    //
-#define _wifiProvisionPriHost 0x08  // NOTE: In a larger project I have service for a provisions a primary and secondary modem/router.
-#define _wifiProvisionSecdHost 0x10 //
+#define _wifiProvisionPriHost 0x08  //
+#define _wifiProvisionSecdHost 0x10 // NOTE: Secondary Host is not support in this project
 #define _wifiConnectPriHost 0x20    //
 #define _wifiConnectSecdHost 0x40   // NOTE: Secondary Host is not support in this project
 #define _wifiExitRun 0x80           // Not implemented

@@ -48,7 +48,7 @@ extern "C"
         uint8_t show = 0;
         uint8_t showSNTP = 0;
 
-        void setShowFlags(void);
+        void setFlags(void);
         void setLogLevels(void);
         void createSemaphores(void);
         void createQueues(void);

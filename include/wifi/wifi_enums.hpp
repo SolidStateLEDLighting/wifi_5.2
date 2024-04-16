@@ -10,25 +10,28 @@ enum class WIFI_NOTIFY : uint8_t
     CMD_CLEAR_PRI_HOST = 1, // (Directive) Sets bit to clear SSID and PWD data for the Pri host
     CMD_DISC_HOST,          // (Directive) Sets bit to disconnect any host that may be currently connected
     CMD_CONN_PRI_HOST,      // (Directive) Sets bit to connects to the Pri host
-    CMD_RUN_DIRECTIVES,     // Runs all commands set in the Directives byte
-    CMD_SET_AUTOCONNECT,    // Sets flag to autoconnect
-    CMD_CLEAR_AUTOCONNECT,  // Clears flag to autoconnect
-    CMD_SHUT_DOWN,          // Shuts down the wifi connection completely and calls for deletion.
+    CMD_PROV_HOST,
+    CMD_RUN_DIRECTIVES,    // Runs all commands set in the Directives byte
+    CMD_SET_AUTOCONNECT,   // Sets flag to autoconnect
+    CMD_CLEAR_AUTOCONNECT, // Clears flag to autoconnect
+    CMD_SHUT_DOWN,         // Shuts down the wifi connection completely and calls for deletion.
 };
 
 // Queue based commands should be used for commands which may provide input and perhaps return data.
 enum class WIFI_COMMAND : uint8_t
 {
-    SET_SSID_PRI = 1, // Sets SSID Pri
-    SET_PASSWD_PRI,   // Sets PWD Pri
-    SET_SHOW_FLAGS,   // Enables and disables logging from a distance
+    SET_SSID_PRI = 1,    // Sets primary host SSID and Password
+    SET_WIFI_CONN_STATE, //
+    SET_SHOW_FLAGS,      // Enables and disables logging from a distance
 };
 
 struct WIFI_CmdRequest
 {
     WIFI_COMMAND requestedCmd; //
-    uint8_t data[64];          // Can hold show flags (length 2) or SSID or a Password of full length.
-    uint8_t dataLength;        //
+    uint8_t data1[32];         // Can hold an ssid, connection state, or show flags
+    uint8_t data1Length;       //
+    uint8_t data2[64];         // Can hold a password
+    uint8_t data2Length;       //
 };
 
 struct WIFI_Event
@@ -46,6 +49,7 @@ enum class WIFI_OP : uint8_t
     Directives,
     Connect,
     Disconnect,
+    Provision,
     Error,
     Idle,
 };
@@ -74,6 +78,7 @@ enum class WIFI_DIRECTIVES : uint8_t
     Start,
     Clear_Data,
     Disconnect_Host,
+    Provision_Host,
     Connect_Host,
     Finished,
 };
@@ -105,6 +110,14 @@ enum class WIFI_DISC : uint8_t
     Unregister_Handlers,
     Wifi_Deinit,
     Destroy_Netif_Objects,
+    Finished,
+    Error,
+};
+
+enum class WIFI_PROV : uint8_t
+{
+    Start,
+    Wait_On_Provision,
     Finished,
     Error,
 };

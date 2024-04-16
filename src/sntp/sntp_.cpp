@@ -8,11 +8,12 @@ SNTP *ptrSNTPInternal = nullptr; // Hold a 'this' pointer for the SNTP event han
 /* Local Semaphores */
 SemaphoreHandle_t semSNTPRouteLock = NULL;
 
+/* Construction / Destruction */
 SNTP::SNTP()
 {
     ptrSNTPInternal = this; // We plan on removing this someday when all ESP event handlers can be passed a 'this' pointer during registration.
 
-    setShowFlags();            // Enable logging statements for any area of concern.
+    setFlags();            // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
     createSemaphores();        // Creates any locking semaphores owned by this object.
     createQueues();            // We use queues in several areas.
@@ -25,7 +26,7 @@ SNTP::~SNTP()
     destroyQueues();
 }
 
-void SNTP::setShowFlags()
+void SNTP::setFlags()
 {
     // show variable is system wide defined and this exposes for viewing any general processes.
     show = 0;

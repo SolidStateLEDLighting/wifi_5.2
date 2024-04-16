@@ -10,6 +10,7 @@ SemaphoreHandle_t semWifiRouteLock = NULL;
 /* External Semaphores */
 extern SemaphoreHandle_t semSysEntry;
 
+/* Construction / Destruction */
 Wifi::Wifi()
 {
     // Process of creating this object:
@@ -23,6 +24,8 @@ Wifi::Wifi()
     // 8) Start this object's run task.
     // 9) Done.
 
+    // NOTE: Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
+
     if (xSemaphoreTake(semSysEntry, portMAX_DELAY)) // Get everything from the system that we need.
     {
         if (sys == nullptr)
@@ -31,10 +34,14 @@ Wifi::Wifi()
         xSemaphoreGive(semSysEntry);
     }
 
+    // The SNTP services are required all the time when WIFI is connected.  For that reason, we don't spin a new task for SNTP.  Instead
+    // we increase the task memory in the Wifi to accommodate SNTP.  In contrast to Provision where we will allow the Provision object to create
+    // its own task because we don't want to inflate the Wifi task memory to include Provision when that object is only used occasionally.
+    // When Provision is destroyed, (or never created) that task memory is conserved.
     if (sntp == nullptr)
-        sntp = new SNTP(); // Becoming RAII compliant may not be terribly interesting until the Esp32 is running asymmetric multiprocessing.
+        sntp = new SNTP();
 
-    setShowFlags();            // Enable logging statements for any area of concern.
+    setFlags();                // Enable logging statements for any area of concern.
     setLogLevels();            // Manually sets log levels for other tasks down the call stack.
     createSemaphores();        // Creates any locking semaphores owned by this object.
     createQueues();            // We use queues in several areas.
@@ -78,7 +85,7 @@ Wifi::~Wifi()
     destroyQueues();
 }
 
-void Wifi::setShowFlags()
+void Wifi::setFlags()
 {
     // show variable is system wide defined and this exposes for viewing any general processes.
     show = 0;
@@ -93,15 +100,15 @@ void Wifi::setShowFlags()
 
     // showWifi exposes wifi sub-processes.
     showWifi = 0;
-    // showWifi |= _showWifiDirectiveSteps;
+    showWifi |= _showWifiDirectiveSteps;
     showWifi |= _showWifiConnSteps;
     showWifi |= _showWifiDiscSteps;
+    showWifi |= _showWifiProvSteps;
     // showWifi |= _showWifiShdnSteps;
 }
 
 void Wifi::setLogLevels()
 {
-
     if ((show + showWifi) > 0)                // Normally, we are interested in the variables inside our object.
         esp_log_level_set(TAG, ESP_LOG_INFO); // If we have any flags set, we need to be sure to turn on the logging so we can see them.
     else

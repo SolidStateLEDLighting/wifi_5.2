@@ -10,7 +10,6 @@
 #include "freertos/projdefs.h"
 
 #include "esp_log.h" // ESP libraries
-
 #include "esp_wifi.h"
 #include "esp_netif_types.h"
 #include "esp_wifi_types.h"
@@ -18,14 +17,15 @@
 #include "system_.hpp"
 #include "nvs/nvs_.hpp"
 #include "sntp/sntp_.hpp"
+#include "prov/prov_.hpp"
 
 /* Forward Declarations */
 class System;
 class NVS;
 class SNTP;
+class PROV;
 
 /* External Semaphores */
-extern SemaphoreHandle_t semSysEntry;
 
 extern "C"
 {
@@ -52,6 +52,7 @@ extern "C"
         NVS *nvs = nullptr;
 
         TaskHandle_t taskHandleSystemRun = nullptr;
+        TaskHandle_t taskHandleProvisionRun = nullptr;
 
         uint8_t show = 0;
         uint8_t showWifi = 0;
@@ -62,7 +63,7 @@ extern "C"
 
         uint8_t wifiDirectives = 0;
 
-        void setShowFlags(void); // Pre-Task Functions
+        void setFlags(void); // Pre-Task Functions
         void setLogLevels(void);
         void createSemaphores(void);
         void destroySemaphores(void);
@@ -74,6 +75,7 @@ extern "C"
 
         /* SNTP */
         SNTP *sntp = nullptr;
+        PROV *prov = nullptr;
 
         /* Wifi_Diagnostic */
         void logTaskInfo(void);
@@ -128,6 +130,7 @@ extern "C"
         WIFI_DIRECTIVES wifiDirectivesStep = WIFI_DIRECTIVES::Finished; //
         WIFI_CONN wifiConnStep = WIFI_CONN::Finished;                   //
         WIFI_DISC wifiDiscStep = WIFI_DISC::Finished;                   //
+        WIFI_PROV wifiProvStep = WIFI_PROV::Finished; //
         WIFI_SHUTDOWN wifiShdnStep = WIFI_SHUTDOWN::Finished;           //
     };
 }
