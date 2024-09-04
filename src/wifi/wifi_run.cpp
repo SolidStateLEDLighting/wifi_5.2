@@ -12,9 +12,8 @@ extern SemaphoreHandle_t semProvEntry;
 void Wifi::runMarshaller(void *arg)
 {
     ((Wifi *)arg)->run();
-
     ((Wifi *)arg)->taskHandleWIFIRun = nullptr; // This doesn't happen automatically but we look at this variable for validity, so set it manually.
-    vTaskDelete(((Wifi *)arg)->taskHandleWIFIRun);
+    vTaskDelete(NULL);
 }
 
 void Wifi::run(void)

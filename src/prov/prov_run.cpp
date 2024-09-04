@@ -10,9 +10,8 @@ extern SemaphoreHandle_t semProvEntry;
 void PROV::runMarshaller(void *arg)
 {
     ((PROV *)arg)->run();
-
     ((PROV *)arg)->taskHandleRun = nullptr; // This doesn't happen automatically but we look at this variable for validity, so set it manually.
-    vTaskDelete(((PROV *)arg)->taskHandleRun);
+    vTaskDelete(NULL);
 }
 
 void PROV::run(void)
